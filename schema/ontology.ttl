@@ -1,80 +1,100 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix ex: <http://padi.u/schema#> .
-@prefix owl: <http://www.w3.org/2002/07/owl#> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 # =====================================================
-# 🏛️ PADI LEXICON — PRODUCTION ONTOLOGY
+# 🏛️ PADI SHACL SHAPE — OPPORTUNITY VALIDATION
 # =====================================================
 
-# ---------------------------
-# CLASSES
-# ---------------------------
+ex:OpportunityShape a sh:NodeShape ;
+    sh:targetClass ex:FinancialSignal ;
+    rdfs:comment "Validates FinancialSignal and ExecutableFact instances according to the 1003 Rule and infrastructure requirements." ;
 
-# A detected signal from mempool / on-chain / external data
-ex:FinancialSignal rdf:type owl:Class ;
-    rdfs:label "Financial Signal" .
+    # ---------------------------
+    # RULE 1: Confidence MUST be exactly 1.0
+    # ---------------------------
+    sh:property [
+        sh:path ex:hasConfidence ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:minInclusive 1.0 ;
+        sh:maxInclusive 1.0 ;
+        rdfs:comment "Confidence score must exist exactly once and have a value of 1.0." ;
+    ] ;
 
-# A validated, deterministic signal ready for execution
-ex:ExecutableFact rdf:type owl:Class ;
-    rdfs:subClassOf ex:FinancialSignal ;
-    rdfs:label "Executable Fact" .
+    # ---------------------------
+    # RULE 2: Verification Sources MUST be exactly 3
+    # ---------------------------
+    sh:property [
+        sh:path ex:hasVerificationSource ;
+        sh:datatype xsd:string ;
+        sh:minCount 3 ;
+        sh:maxCount 3 ;
+        rdfs:comment "Exactly 3 independent verification sources are required (1003 Rule)." ;
+    ] ;
 
-# ---------------------------
-# CORE PROPERTIES (1003 RULE)
-# ---------------------------
+    # ---------------------------
+    # TARGETING PROPERTIES
+    # ---------------------------
+    sh:property [
+        sh:path ex:hasTargetAddress ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        rdfs:comment "The contract or wallet address targeted by this signal; single occurrence." ;
+    ] ;
 
-# Confidence score — must be exactly 1.0 (enforced via SHACL)
-ex:hasConfidence rdf:type owl:DatatypeProperty ;
-    rdfs:domain ex:FinancialSignal ;
-    rdfs:range xsd:decimal ;
-    rdfs:label "Confidence Score" .
+    sh:property [
+        sh:path ex:hasActionType ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        rdfs:comment "The specific action type (e.g., SWAP, ARB, AUDIT); single occurrence." ;
+    ] ;
 
-# Verification sources — must be exactly 3 independent sources (SHACL enforced)
-ex:hasVerificationSource rdf:type owl:DatatypeProperty ;
-    rdfs:domain ex:FinancialSignal ;
-    rdfs:range xsd:string ;
-    rdfs:label "Verification Source" .
+    # ---------------------------
+    # IDENTITY & TRACEABILITY
+    # ---------------------------
+    sh:property [
+        sh:path ex:hasSignalID ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        rdfs:comment "Unique deterministic identifier (SHA256 or similar); single occurrence." ;
+    ] ;
 
-# ---------------------------
-# IDENTITY & TRACEABILITY
-# ---------------------------
+    sh:property [
+        sh:path ex:observedAt ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        rdfs:comment "Timestamp when the signal was observed; single occurrence, ideally UTC." ;
+    ] ;
 
-# Deterministic unique identifier (e.g., SHA256 hash)
-ex:hasSignalID rdf:type owl:DatatypeProperty ;
-    rdfs:domain ex:FinancialSignal ;
-    rdfs:range xsd:string ;
-    rdfs:label "Signal Identifier" .
+    # ---------------------------
+    # INFRASTRUCTURE CONTEXT
+    # ---------------------------
+    sh:property [
+        sh:path ex:atBlockNumber ;
+        sh:datatype xsd:integer ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        rdfs:comment "The blockchain/mempool block number where the signal was observed." ;
+    ] ;
 
-# Timestamp of when the signal was observed
-ex:observedAt rdf:type owl:DatatypeProperty ;
-    rdfs:domain ex:FinancialSignal ;
-    rdfs:range xsd:dateTime ;
-    rdfs:label "Observed Timestamp" .
+    sh:property [
+        sh:path ex:hasGasPriceGwei ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        rdfs:comment "Gas price at time of observation in Gwei; single occurrence." ;
+    ] ;
 
-# ---------------------------
-# VALIDATION STATE
-# ---------------------------
-
-# Indicates whether the signal passed validation (true/false)
-ex:isValidated rdf:type owl:DatatypeProperty ;
-    rdfs:domain ex:FinancialSignal ;
-    rdfs:range xsd:boolean ;
-    rdfs:label "Validation Status" .
-
-# ---------------------------
-# INFRASTRUCTURE CONTEXT (BASE L2)
-# ---------------------------
-
-# Block number where the signal was observed
-ex:atBlockNumber rdf:type owl:DatatypeProperty ;
-    rdfs:domain ex:FinancialSignal ;
-    rdfs:range xsd:integer ;
-    rdfs:label "Block Number" .
-
-# Gas price at time of observation (in Gwei)
-ex:hasGasPriceGwei rdf:type owl:DatatypeProperty ;
-    rdfs:domain ex:FinancialSignal ;
-    rdfs:range xsd:decimal ;
-    rdfs:label "Gas Price (Gwei)" .
+    sh:property [
+        sh:path ex:isValidated ;
+        sh:datatype xsd:boolean ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        rdfs:comment "Indicates whether the signal passed validation (true/false)." ;
+    ] .
