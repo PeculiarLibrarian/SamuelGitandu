@@ -32,7 +32,7 @@ The 2026 AI economy is no longer about "building bigger models." As the industry
 
 *The massive-scale environments where AI lives.*
 
-*   **Giga-Scale Deployments**: Nscale and Microsoft have inked a **1.35 Gigawatt** deal to deploy NVIDIA’s next-gen "Vera Rubin" GPUs ([HPCwire, 2026](https://www.hpcwire.com/off-the-wire/nscale-targets-1-35gw-ai-deployment-with-microsoft-at-monarch-ai-campus/)). For context, 1GW can power roughly 750,000 homes.
+*   **Giga-Scale Deployments**: Nscale and Microsoft have inked a **1.35 Gigawatt** deal to deploy NVIDIA’s next-gen "Vera Rubin" GPUs ([HPCwire, 2026](https://www.hpcwire.com/off-the-wire/nscale-targets-1-35gw-ai-deployment-with-microsoft-at-monarch-ai-campus/)). For context, 1 GW can power roughly 750,000 homes.
     
 *   **The Sovereign Shift**: Nations are building "Sovereign AI" to ensure data doesn't cross borders. Australia’s NEXTDC is building a multibillion-dollar "supercluster" specifically to host OpenAI services with domestic governance ([iTnews, 2025](https://www.nextdc.com/news/building-the-next-generation-of-sovereign-ai-infrastructure-in-australia)).
     
@@ -41,7 +41,7 @@ The 2026 AI economy is no longer about "building bigger models." As the industry
 
 ## Layer 3: Foundation Models & Data (The Intelligence Engines)
 
-*The "brains" being trained on these clusters.*
+*The "brains" are being trained on these clusters.*
 
 *   **The Agentic Surge**: The market for **Agentic AI**, software that can act independently, is growing at a staggering **175% CAGR**, projected to hit **$41.8 billion by 2030** ([Omdia via Financial Times, 2025](https://www.barchart.com/story/news/34948144/new-omdia-analysis-shows-agentic-ai-outpacing-growth-rates-of-traditional-generative-ai)).
     
@@ -56,7 +56,7 @@ The 2026 AI economy is no longer about "building bigger models." As the industry
 
 *   **The Hallucination Tax**: AI errors cost businesses **$67.4 billion** in 2024. This has birthed the **$2.13 billion Neuro-Symbolic AI market**, a system that uses "Librarian-style" logic to verify its own thoughts ([Research & Markets, 2026](https://www.researchandmarkets.com/reports/6226593/neuro-symbolic-ai-market-report)).
     
-*   **Success Metric**: Grounding AI in structured "Knowledge Graphs" can reduce errors by up to **72%** ([Preprints.org](https://www.preprints.org/manuscript/202505.1955)[, 2025](https://www.preprints.org/manuscript/202505.1955)).
+*   **Success Metric**: Grounding AI in structured "Knowledge Graphs" can reduce errors by up to **72%** ([Preprints.org, 2025](https://www.preprints.org/manuscript/202505.1955)).
     
 
 * * *
