@@ -1,5 +1,3 @@
-Here is the complete, updated `README.md` code for copying and pasting:
-
 ```markdown
 # 🏛️ PADI BUREAU — NAIROBI NODE-01 MULTI-NETWORK
 
