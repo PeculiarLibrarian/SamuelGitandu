@@ -1,401 +1,381 @@
-"""
-Multi-network API configuration for PADI Bureau ingestion layer.
-Supports OP Mainnet (primary) and Ethereum Mainnet (fallback).
-Compliant with Nairobi-01 node 1003 rules enforcement.
-"""
-
-from typing import Dict, Optional, List
 import os
 from dotenv import load_dotenv
-from dataclasses import dataclass
-import logging
+from typing import Optional, Dict
+from pathlib import Path
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# =====================================================
+# 🏛️ PADI CONFIGURATION v4.0 — NAIROBI NODE-01
+# Multi-Network Support: OP Mainnet, OP Sepolia, ETH Mainnet, ETH Sepolia
+# =====================================================
 
 # Load environment variables from .env file
 load_dotenv()
 
+# =====================================================
+# 🏛️ NODE IDENTIFICATION
+# =====================================================
 
-@dataclass
-class APIProvider:
+NODE_ID = os.getenv("PADI_NODE_ID", "NAIROBI-01")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
+# =====================================================
+# 🏛️ WALLET CONFIGURATION
+# =====================================================
+
+PADI_WALLET_ADDRESS = os.getenv("PADI_WALLET_ADDRESS")
+PADI_PRIVATE_KEY = os.getenv("PADI_PRIVATE_KEY")
+
+# =====================================================
+# 🏛️ MULTI-NETWORK RPC CONFIGURATION
+# =====================================================
+
+# ---------------------------
+# OP Mainnet Configuration
+# ---------------------------
+# RPC Endpoint for Optimism Mainnet
+# Example: https://opt-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+# Example: https://mainnet.optimism.io
+OP_MAINNET_RPC_URL = os.getenv("OP_MAINNET_RPC_URL")
+
+# ---------------------------
+# OP Sepolia Configuration
+# ---------------------------
+# RPC Endpoint for Optimism Sepolia Testnet
+# Example: https://opt-sepolia.g.alchemy.com/v2/YOUR_API_KEY
+# Example: https://sepolia.optimism.io
+OP_SEPOLIA_RPC_URL = os.getenv("OP_SEPOLIA_RPC_URL")
+
+# ---------------------------
+# Ethereum Mainnet Configuration
+# ---------------------------
+# RPC Endpoint for Ethereum Mainnet
+# Example: https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+# Example: https://mainnet.infura.io/v3/YOUR_PROJECT_ID
+ETH_MAINNET_RPC_URL = os.getenv("ETH_MAINNET_RPC_URL")
+
+# ---------------------------
+# Ethereum Sepolia Configuration
+# ---------------------------
+# RPC Endpoint for Ethereum Sepolia Testnet
+# Example: https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY
+# Example: https://sepolia.infura.io/v3/YOUR_PROJECT_ID
+ETH_SEPOLIA_RPC_URL = os.getenv("ETH_SEPOLIA_RPC_URL")
+
+# =====================================================
+# 🏛️ LEGACY BASE L2 CONFIGURATION (BACKWARD COMPATIBILITY)
+# =====================================================
+
+# ---------------------------
+# Base L2 Configuration
+# ---------------------------
+# RPC Endpoint for Base L2
+# Example: https://base-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+# Example: https://mainnet.base.org
+# Note: This is maintained for backward compatibility only
+BASE_L2_RPC_URL = os.getenv("BASE_L2_RPC_URL")
+
+# ---------------------------
+# Chain ID Configuration
+# ---------------------------
+# Default chain ID for legacy Base L2 operations
+# Note: Multi-network executor uses NETWORK_CONFIG instead
+CHAIN_ID = int(os.getenv("CHAIN_ID", "8453"))  # Default: Base L2
+
+# =====================================================
+# 🏛️ SCHEMA CONFIGURATION
+# =====================================================
+
+# Paths to RDF schema files
+ONTology_FILE = os.getenv("ONTology_FILE", "schema/ontology.ttl")
+SHAPES_FILE = os.getenv("SHAPES_FILE", "schema/shapes.ttl")
+RULES_FILE = os.getenv("RULES_FILE", "schema/rules.ttl")
+
+# =====================================================
+# 🏛️ AUDIT CONFIGURATION
+# =====================================================
+
+# Audit log directory
+AUDIT_LOG_DIR = os.getenv("AUDIT_LOG_DIR", "audit_logs")
+
+# Maximum audit log size (in MB) before rotation
+AUDIT_LOG_MAX_SIZE_MB = int(os.getenv("AUDIT_LOG_MAX_SIZE_MB", "100"))
+
+# Maximum number of backup audit logs to retain
+AUDIT_LOG_MAX_BACKUPS = int(os.getenv("AUDIT_LOG_MAX_BACKUPS", "10"))
+
+# =====================================================
+# 🏛️ EXECUTION CONFIGURATION
+# =====================================================
+
+# Default gas price override (in wei)
+# Set to None to use network gas price
+DEFAULT_GAS_PRICE = os.getenv("DEFAULT_GAS_PRICE")
+
+# Gas limit for transactions
+GAS_LIMIT = int(os.getenv("GAS_LIMIT", "250000"))
+
+# Transaction timeout (in seconds)
+TX_TIMEOUT = int(os.getenv("TX_TIMEOUT", "300"))
+
+# =====================================================
+# 🏛️ MULTI-NETWORK CONFIGURATION
+# =====================================================
+
+# Default network type for operations when not specified
+# Options: "op-mainnet", "op-sepolia", "eth-mainnet", "eth-sepolia", "base-l2" (legacy)
+DEFAULT_NETWORK_TYPE = os.getenv("DEFAULT_NETWORK_TYPE", "op-mainnet")
+
+# Enable cross-network verification by default
+DEFAULT_CROSS_NETWORK_VERIFICATION = os.getenv("DEFAULT_CROSS_NETWORK_VERIFICATION", "true").lower() == "true"
+
+# Fallback network order (list of networks to try in order)
+FALLBACK_NETWORK_ORDER = os.getenv("FALLBACK_NETWORK_ORDER", "op-mainnet,eth-mainnet,op-sepolia,eth-sepolia").split(",")
+
+# =====================================================
+# 🏛️ VALIDATION RULES
+# =====================================================
+
+# Required confidence score for deterministic execution (1003 Rule)
+REQUIRED_CONFIDENCE = float(os.getenv("REQUIRED_CONFIDENCE", "1.0"))
+
+# Required number of verification sources (1003 Rule)
+REQUIRED_VERIFICATION_SOURCES = int(os.getenv("REQUIRED_VERIFICATION_SOURCES", "3"))
+
+# =====================================================
+# 🏛️ VALIDATION METHODS
+# =====================================================
+
+def validate() -> bool:
     """
-    Configuration for a single API provider.
-    
-    Attributes:
-        name: Human-readable provider name
-        endpoint: Full API endpoint URL
-        api_key: API key (optional if included in endpoint)
-        chain_id: EVM chain ID (None for non-EVM networks)
-        network: Network type (mainnet, testnet)
-        rate_limit_per_minute: Request rate limit
-        enabled: Whether this provider is active
-        network_type: EVM or non-EVM network type
+    Validate configuration settings.
+    Returns True if configuration is valid, False otherwise.
     """
-    name: str
-    endpoint: str
-    api_key: Optional[str] = None
-    chain_id: Optional[int] = None
-    network: str = "mainnet"
-    rate_limit_per_minute: int = 100
-    enabled: bool = True
-    network_type: str = "evm"
+    # Check wallet configuration
+    if not PADI_WALLET_ADDRESS:
+        print("⚠️ Warning: PADI_WALLET_ADDRESS not configured.")
     
-    @property
-    def full_url(self) -> str:
-        """Construct full API URL with key if needed."""
-        if self.api_key and "{key}" in self.endpoint:
-            return self.endpoint.replace("{key}", self.api_key)
-        return self.endpoint
+    if not PADI_PRIVATE_KEY:
+        print("⚠️ Warning: PADI_PRIVATE_KEY not configured. Read-only mode enabled.")
+    
+    # Check RPC configuration (at least one network must be configured)
+    rpc_urls = [
+        ("OP Mainnet", OP_MAINNET_RPC_URL),
+        ("OP Sepolia", OP_SEPOLIA_RPC_URL),
+        ("Ethereum Mainnet", ETH_MAINNET_RPC_URL),
+        ("Ethereum Sepolia", ETH_SEPOLIA_RPC_URL),
+        ("Base L2", BASE_L2_RPC_URL)
+    ]
+    
+    configured_networks = [name for name, url in rpc_urls if url]
+    
+    if not configured_networks:
+        print("❌ Error: No RPC URLs configured. At least one network must be configured.")
+        return False
+    
+    print(f"✅ Configured networks: {', '.join(configured_networks)}")
+    
+    # Validate network types
+    if DEFAULT_NETWORK_TYPE not in ["op-mainnet", "op-sepolia", "eth-mainnet", "eth-sepolia", "base-l2"]:
+        print(f"⚠️ Warning: Invalid DEFAULT_NETWORK_TYPE: {DEFAULT_NETWORK_TYPE}")
+        return False
+    
+    # Validate confidence and verification sources
+    if REQUIRED_CONFIDENCE < 0.0 or REQUIRED_CONFIDENCE > 1.0:
+        print(f"❌ Error: REQUIRED_CONFIDENCE must be between 0.0 and 1.0, got {REQUIRED_CONFIDENCE}")
+        return False
+    
+    if REQUIRED_VERIFICATION_SOURCES < 1:
+        print(f"❌ Error: REQUIRED_VERIFICATION_SOURCES must be at least 1, got {REQUIRED_VERIFICATION_SOURCES}")
+        return False
+    
+    # Validate audit log directory
+    audit_dir_path = Path(AUDIT_LOG_DIR)
+    try:
+        audit_dir_path.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        print(f"❌ Error: Failed to create audit log directory: {e}")
+        return False
+    
+    return True
 
 
-class PADIConfig:
+def get_network_config(network_type: str) -> Dict[str, any]:
     """
-    Centralized configuration for multi-network API providers.
+    Get network configuration for a specific network type.
     
-    Primary: OP Mainnet (Optimism L2)
-    Fallback: Ethereum Mainnet
+    Args:
+        network_type: Network type ("op-mainnet", "op-sepolia", "eth-mainnet", "eth-sepolia", "base-l2")
     
-    Enforces Nairobi-01 node 1003 rules for confidence scoring
-    and verification requirements.
+    Returns:
+        Dictionary with network configuration (chain_id, rpc_url, name)
+    
+    Raises:
+        ValueError: If network_type is invalid or not configured
     """
-    
-    # ═════════════════════════════════════════════════════════════════
-    # Node Configuration - Nairobi-01
-    # ═════════════════════════════════════════════════════════════════
-    
-    NODE_LOCATION = os.getenv("PADI_NODE_LOCATION", "Nairobi-01")
-    DEFAULT_NETWORK = os.getenv("PADI_DEFAULT_NETWORK", "mainnet")
-    PRIMARY_NETWORK = os.getenv("PADI_PRIMARY_NETWORK", "op").lower()
-    FALLBACK_NETWORKS = os.getenv("PADI_FALLBACK_NETWORKS", "ethereum").lower().split(",")
-    MAX_DRIFT_SECONDS = int(os.getenv("PADI_MAX_DRIFT_SECONDS", "5"))
-    BLOCK_REFRESH_INTERVAL = int(os.getenv("PADI_BLOCK_REFRESH_INTERVAL", "15"))
-    
-    # Logging configuration
-    LOG_LEVEL = os.getenv("PADI_LOG_LEVEL", "INFO")
-    DETAILED_LOGS = os.getenv("PADI_DETAILED_LOGS", "false").lower() == "true"
-    
-    # ═════════════════════════════════════════════════════════════════
-    # 1003 Rule Enforcement (Architect Approval Required to Modify)
-    # ═════════════════════════════════════════════════════════════════
-    
-    CONFIDENCE_THRESHOLD = float(os.getenv("PADI_CONFIDENCE_THRESHOLD", "1.0"))
-    REQUIRED_VERIFICATION_SOURCES = int(os.getenv("PADI_REQUIRED_VERIFICATION_SOURCES", "3"))
-    
-    @classmethod
-    def validate_1003_rules(cls) -> bool:
-        """
-        Validate that 1003 rule enforcement is correct.
-        
-        Returns:
-            True if rules are correctly enforced
-        """
-        is_valid = (
-            cls.CONFIDENCE_THRESHOLD == 1.0 and 
-            cls.REQUIRED_VERIFICATION_SOURCES == 3
-        )
-        
-        if not is_valid:
-            logger.warning(
-                f"⚠️  Nairobi-01 Rule 1003 Violation: "
-                f"CONFIDENCE_THRESHOLD={cls.CONFIDENCE_THRESHOLD} "
-                f"(expected 1.0), "
-                f"REQUIRED_VERIFICATION_SOURCES={cls.REQUIRED_VERIFICATION_SOURCES} "
-                f"(expected 3)"
-            )
-        
-        return is_valid
-    
-    # ═════════════════════════════════════════════════════════════════
-    # OP Mainnet (Optimism L2) - Primary Network
-    # ═════════════════════════════════════════════════════════════════
-    
-    OP_MAINNET = APIProvider(
-        name="Alchemy-OP-Mainnet",
-        endpoint=os.getenv(
-            "ALCHEMY_OP_MAINNET_ENDPOINT",
-            "https://opt-mainnet.g.alchemy.com/v2/{key}"
-        ),
-        api_key=os.getenv("ALCHEMY_OP_MAINNET_API_KEY"),
-        chain_id=10,  # Optimism Mainnet chain ID
-        network="mainnet",
-        rate_limit_per_minute=300,
-        enabled=bool(os.getenv("ALCHEMY_OP_MAINNET_API_KEY")),
-        network_type="evm"
-    )
-    
-    OP_SEPOLIA = APIProvider(
-        name="Alchemy-OP-Sepolia",
-        endpoint=os.getenv(
-            "ALCHEMY_OP_SEPOLIA_ENDPOINT",
-            "https://opt-sepolia.g.alchemy.com/v2/{key}"
-        ),
-        api_key=os.getenv("ALCHEMY_OP_SEPOLIA_API_KEY"),
-        chain_id=11155420,  # OP Sepolia chain ID
-        network="sepolia",
-        rate_limit_per_minute=300,
-        enabled=bool(os.getenv("ALCHEMY_OP_SEPOLIA_API_KEY")),
-        network_type="evm"
-    )
-    
-    # ═════════════════════════════════════════════════════════════════
-    # Ethereum Mainnet - Fallback Network
-    # ═════════════════════════════════════════════════════════════════
-    
-    ETH_MAINNET = APIProvider(
-        name="Alchemy-Ethereum-Mainnet",
-        endpoint=os.getenv(
-            "ALCHEMY_ETH_MAINNET_ENDPOINT",
-            "https://eth-mainnet.g.alchemy.com/v2/{key}"
-        ),
-        api_key=os.getenv("ALCHEMY_ETH_MAINNET_API_KEY"),
-        chain_id=1,  # Ethereum Mainnet chain ID
-        network="mainnet",
-        rate_limit_per_minute=300,
-        enabled=bool(os.getenv("ALCHEMY_ETH_MAINNET_API_KEY")),
-        network_type="evm"
-    )
-    
-    ETH_SEPOLIA = APIProvider(
-        name="Alchemy-Ethereum-Sepolia",
-        endpoint=os.getenv(
-            "ALCHEMY_ETH_SEPOLIA_ENDPOINT",
-            "https://eth-sepolia.g.alchemy.com/v2/{key}"
-        ),
-        api_key=os.getenv("ALCHEMY_ETH_SEPOLIA_API_KEY"),
-        chain_id=11155111,  # Ethereum Sepolia chain ID
-        network="sepolia",
-        rate_limit_per_minute=300,
-        enabled=bool(os.getenv("ALCHEMY_ETH_SEPOLIA_API_KEY")),
-        network_type="evm"
-    )
-    
-    @classmethod
-    def get_op_provider(cls, use_testnet: bool = False) -> Optional[APIProvider]:
-        """
-        Get the active OP (Optimism) provider.
-        
-        Args:
-            use_testnet: Whether to use Sepolia testnet
-            
-        Returns:
-            Configured provider or None
-        """
-        if use_testnet:
-            return cls.OP_SEPOLIA if cls.OP_SEPOLIA.enabled else None
-        return cls.OP_MAINNET
-    
-    @classmethod
-    def get_eth_provider(cls, use_testnet: bool = False) -> Optional[APIProvider]:
-        """
-        Get the active Ethereum provider.
-        
-        Args:
-            use_testnet: Whether to use Sepolia testnet
-            
-        Returns:
-            Configured provider or None
-        """
-        if use_testnet:
-            return cls.ETH_SEPOLIA if cls.ETH_SEPOLIA.enabled else None
-        return cls.ETH_MAINNET
-    
-    @classmethod
-    def get_provider_by_network(cls, network: str, use_testnet: bool = False) -> Optional[APIProvider]:
-        """
-        Get provider by network name.
-        
-        Args:
-            network: "op", "ethereum", "eth", "base", "solana"
-            use_testnet: Whether to use testnet/devnet
-            
-        Returns:
-            Configured provider or None
-        """
-        network = network.lower()
-        if network == "op":
-            return cls.get_op_provider(use_testnet)
-        elif network in ("ethereum", "eth"):
-            return cls.get_eth_provider(use_testnet)
-        return None
-    
-    @classmethod
-    def get_primary_provider(cls) -> Optional[APIProvider]:
-        """
-        Get the primary provider based on PADI_PRIMARY_NETWORK setting.
-        
-        Returns:
-            Configured primary provider or None
-        """
-        return cls.get_provider_by_network(
-            cls.PRIMARY_NETWORK,
-            use_testnet=(cls.DEFAULT_NETWORK == "testnet")
-        )
-    
-    @classmethod
-    def get_fallback_providers(cls) -> List[APIProvider]:
-        """
-        Get enabled fallback providers in priority order.
-        
-        Returns:
-            List of enabled fallback providers
-        """
-        providers = []
-        for network in cls.FALLBACK_NETWORKS:
-            provider = cls.get_provider_by_network(network.strip())
-            if provider and provider.enabled:
-                providers.append(provider)
-        return providers
-    
-    @classmethod
-    def get_all_enabled_providers(cls) -> List[APIProvider]:
-        """
-        Get all enabled providers for fallback chain.
-        
-        Returns:
-            List of all enabled providers
-        """
-        enabled = []
-        
-        # OP providers
-        if cls.OP_MAINNET.enabled or cls.OP_SEPOLIA.enabled:
-            op_provider = cls.get_op_provider(cls.DEFAULT_NETWORK == "testnet")
-            if op_provider:
-                enabled.append(op_provider)
-        
-        # Ethereum providers
-        if cls.ETH_MAINNET.enabled or cls.ETH_SEPOLIA.enabled:
-            eth_provider = cls.get_eth_provider(cls.DEFAULT_NETWORK == "testnet")
-            if eth_provider:
-                enabled.append(eth_provider)
-        
-        return enabled
-    
-    @classmethod
-    def validate_config(cls) -> Dict[str, Dict[str, any]]:
-        """
-        Validate that required configurations are set.
-        
-        Returns:
-            Dictionary containing validation results
-        """
-        results = {
-            "op": {},
-            "ethereum": {},
-            "bureau": {},
-            "1003_rule": {}
+    configs = {
+        "op-mainnet": {
+            "chain_id": 10,
+            "rpc_url": OP_MAINNET_RPC_URL,
+            "name": "OP Mainnet",
+            "network_type": "layer2"
+        },
+        "op-sepolia": {
+            "chain_id": 11155420,
+            "rpc_url": OP_SEPOLIA_RPC_URL,
+            "name": "OP Sepolia",
+            "network_type": "layer2-testnet"
+        },
+        "eth-mainnet": {
+            "chain_id": 1,
+            "rpc_url": ETH_MAINNET_RPC_URL,
+            "name": "Ethereum Mainnet",
+            "network_type": "layer1"
+        },
+        "eth-sepolia": {
+            "chain_id": 11155111,
+            "rpc_url": ETH_SEPOLIA_RPC_URL,
+            "name": "Ethereum Sepolia",
+            "network_type": "layer1-testnet"
+        },
+        "base-l2": {
+            "chain_id": CHAIN_ID,
+            "rpc_url": BASE_L2_RPC_URL,
+            "name": "Base L2",
+            "network_type": "layer2-legacy"
         }
-        
-        # Validate OP configuration
-        results["op"]["mainnet"] = {
-            "configured": bool(os.getenv("ALCHEMY_OP_MAINNET_API_KEY")),
-            "endpoint": os.getenv("ALCHEMY_OP_MAINNET_ENDPOINT"),
-            "provider": cls.OP_MAINNET.name,
-            "enabled": cls.OP_MAINNET.enabled
-        }
-        results["op"]["sepolia"] = {
-            "configured": bool(os.getenv("ALCHEMY_OP_SEPOLIA_API_KEY")),
-            "endpoint": os.getenv("ALCHEMY_OP_SEPOLIA_ENDPOINT"),
-            "provider": cls.OP_SEPOLIA.name,
-            "enabled": cls.OP_SEPOLIA.enabled
-        }
-        
-        # Validate Ethereum configuration
-        results["ethereum"]["mainnet"] = {
-            "configured": bool(os.getenv("ALCHEMY_ETH_MAINNET_API_KEY")),
-            "endpoint": os.getenv("ALCHEMY_ETH_MAINNET_ENDPOINT"),
-            "provider": cls.ETH_MAINNET.name,
-            "enabled": cls.ETH_MAINNET.enabled
-        }
-        results["ethereum"]["sepolia"] = {
-            "configured": bool(os.getenv("ALCHEMY_ETH_SEPOLIA_API_KEY")),
-            "endpoint": os.getenv("ALCHEMY_ETH_SEPOLIA_ENDPOINT"),
-            "provider": cls.ETH_SEPOLIA.name,
-            "enabled": cls.ETH_SEPOLIA.enabled
-        }
-        
-        # Validate bureau config
-        results["bureau"] = {
-            "node_location": cls.NODE_LOCATION,
-            "default_network": cls.DEFAULT_NETWORK,
-            "primary_network": cls.PRIMARY_NETWORK,
-            "fallback_networks": cls.FALLBACK_NETWORKS,
-            "log_level": cls.LOG_LEVEL
-        }
-        
-        # Validate 1003 Rule configuration
-        results["1003_rule"]["confidence_threshold"] = cls.CONFIDENCE_THRESHOLD
-        results["1003_rule"]["required_sources"] = cls.REQUIRED_VERIFICATION_SOURCES
-        results["1003_rule"]["valid"] = (
-            cls.CONFIDENCE_THRESHOLD == 1.0 and 
-            cls.REQUIRED_VERIFICATION_SOURCES == 3
-        )
-        
-        return results
+    }
     
-    @classmethod
-    def print_config_summary(cls):
-        """
-        Print a formatted summary of current configuration.
-        Useful for debugging and setup verification.
-        """
-        config = cls.validate_config()
-        
-        # Validate 1003 rules
-        is_1003_valid = cls.validate_1003_rules()
-        
-        print("\n" + "=" * 70)
-        print("🏛️  PADI Sovereign Bureau - Multi-Network Configuration")
-        print("=" * 70)
-        print(f"📍 Node: {cls.NODE_LOCATION}")
-        print("=" * 70)
-        
-        # Primary network
-        print(f"\n⭐ Primary Network: {cls.PRIMARY_NETWORK.upper()}")
-        print("-" * 70)
-        for mode, cfg in config[cls.PRIMARY_NETWORK].items():
-            status = "✅ Enabled" if cfg["enabled"] else "⬜ Not Configured"
-            print(f"  {mode}:")
-            print(f"    • Status: {status}")
-            if cfg["enabled"]:
-                print(f"    • Provider: {cfg['provider']}")
-                print(f"    • Endpoint: {cfg['endpoint'][:50]}...")
-        
-        # Fallback networks
-        if cls.FALLBACK_NETWORKS:
-            print(f"\n🔄 Fallback Networks: {', '.join(cls.FALLBACK_NETWORKS).upper()}")
-            print("-" * 70)
-            for net in cls.FALLBACK_NETWORKS:
-                net = net.strip()
-                if net in config:
-                    for mode, cfg in config[net].items():
-                        if cfg["enabled"]:
-                            print(f"  • {net.upper()} {mode}:")
-                            print(f"    - Provider: {cfg['provider']}")
-        
-        # Bureau configuration
-        print("\n⚙️  Bureau Configuration:")
-        print("-" * 70)
-        for key, value in config["bureau"].items():
-            print(f"  • {key}: {value}")
-        
-        # 1003 Rule
-        print("\n🎯 1003 Rule Enforcement:")
-        print("-" * 70)
-        for key, value in config["1003_rule"].items():
-            if key == "valid":
-                status = "✅ Strict Compliance" if value else "⚠️ Modified"
-                print(f"  • Rule Compliance: {status}")
-            else:
-                print(f"  • {key}: {value}")
-        
-        # Enabled providers
-        enabled_providers = len(cls.get_all_enabled_providers())
-        print(f"\n🔗 Total Enabled Providers: {enabled_providers}")
-        print("=" * 70 + "\n")
+    if network_type not in configs:
+        raise ValueError(f"Invalid network_type: {network_type}. Must be one of {list(configs.keys())}")
+    
+    config = configs[network_type]
+    
+    if not config["rpc_url"]:
+        raise ValueError(f"RPC URL not configured for {network_type}. Please set the environment variable.")
+    
+    return config
 
 
-# Initialize and print configuration on module load
-if __name__ != "__main__":
-    PADIConfig.print_config_summary()
+def get_configured_networks() -> Dict[str, Dict[str, any]]:
+    """
+    Get all configured networks.
+    
+    Returns:
+        Dictionary mapping network types to their configurations
+        Only includes networks with configured RPC URLs
+    """
+    all_configs = {
+        "op-mainnet": {
+            "chain_id": 10,
+            "rpc_url": OP_MAINNET_RPC_URL,
+            "name": "OP Mainnet",
+            "network_type": "layer2"
+        },
+        "op-sepolia": {
+            "chain_id": 11155420,
+            "rpc_url": OP_SEPOLIA_RPC_URL,
+            "name": "OP Sepolia",
+            "network_type": "layer2-testnet"
+        },
+        "eth-mainnet": {
+            "chain_id": 1,
+            "rpc_url": ETH_MAINNET_RPC_URL,
+            "name": "Ethereum Mainnet",
+            "network_type": "layer1"
+        },
+        "eth-sepolia": {
+            "chain_id": 11155111,
+            "rpc_url": ETH_SEPOLIA_RPC_URL,
+            "name": "Ethereum Sepolia",
+            "network_type": "layer1-testnet"
+        },
+        "base-l2": {
+            "chain_id": CHAIN_ID,
+            "rpc_url": BASE_L2_RPC_URL,
+            "name": "Base L2",
+            "network_type": "layer2-legacy"
+        }
+    }
+    
+    # Filter to only include configured networks
+    return {network: config for network, config in all_configs.items() if config["rpc_url"]}
+
+
+def validate_network_config(network_type: str) -> tuple[bool, str]:
+    """
+    Validate network configuration for a specific network.
+    
+    Args:
+        network_type: Network type to validate
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+        is_valid: True if configuration is valid, False otherwise
+        error_message: Error message if invalid, empty string if valid
+    """
+    try:
+        config = get_network_config(network_type)
+        return True, ""
+    except ValueError as e:
+        return False, str(e)
+
+
+# =====================================================
+# 🏛️ DISPLAY CONFIGURATION (for debugging)
+# =====================================================
+
+def display_config():
+    """Display current configuration settings."""
+    print("=" * 60)
+    print("🏛️ PADI SOVEREIGN BUREAU — NODE CONFIGURATION")
+    print("=" * 60)
+    print()
+    print("Node Identification:")
+    print(f"  Node ID: {NODE_ID}")
+    print(f"  Log Level: {LOG_LEVEL}")
+    print()
+    print("Wallet Configuration:")
+    print(f"  Wallet Address: {PADI_WALLET_ADDRESS or 'Not configured'}")
+    print(f"  Private Key: {'Configured' if PADI_PRIVATE_KEY else 'Not configured (read-only)'}")
+    print()
+    print("Network Configuration:")
+    configured = get_configured_networks()
+    if configured:
+        for network, config in configured.items():
+            print(f"  ✅ {config['name']} (Chain ID: {config['chain_id']})")
+        print(f"  Default Network: {DEFAULT_NETWORK_TYPE}")
+    else:
+        print(f"  ❌ No networks configured")
+    print()
+    print("Validation Rules (1003 Rule):")
+    print(f"  Required Confidence: {REQUIRED_CONFIDENCE}")
+    print(f"  Required Verification Sources: {REQUIRED_VERIFICATION_SOURCES}")
+    print()
+    print("Execution Configuration:")
+    print(f"  Gas Limit: {GAS_LIMIT}")
+    print(f"  Transaction Timeout: {TX_TIMEOUT} seconds")
+    print(f"  Cross-Network Verification: {DEFAULT_CROSS_NETWORK_VERIFICATION}")
+    print()
+    print("Schema Configuration:")
+    print(f"  Ontology File: {ONTology_FILE}")
+    print(f"  Shapes File: {SHAPES_FILE}")
+    print(f"  Rules File: {RULES_FILE}")
+    print()
+    print("=" * 60)
+
+
+# =====================================================
+# 🏛️ STANDALONE ENTRY
+# =====================================================
+
+if __name__ == "__main__":
+    print("🏛️ PADI CONFIGURATION VALIDATION")
+    print()
+    
+    if validate():
+        print("✅ Configuration is valid.")
+        print()
+        display_config()
+    else:
+        print("❌ Configuration validation failed.")
+        print("Please check your environment variables and try again.")
