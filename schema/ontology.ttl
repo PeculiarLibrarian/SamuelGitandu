@@ -1,241 +1,130 @@
-@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix ex: <http://padi.u/schema#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
 # =====================================================
-# 🏛️ PADI SHACL SHAPE — OPPORTUNITY VALIDATION
-# Multi-Network Support | Nairobi-01 Node | 1003 Rules
+# 🏛️ PADI CLASSES & PROPERTIES
+# Multi-Network Definitions | Nairobi-01 Node
 # =====================================================
 
 # ─────────────────────────────────────────────────────────────────────
-# ENHANCEMENT 1: Network Context Properties
+# RDF CLASSES
+# ─────────────────────────────────────────────────────────────────────
+
+ex:FinancialSignal a rdfs:Class ;
+    rdfs:label "Financial Signal" ;
+    rdfs:comment "A financial signal detected on blockchain networks (OP Mainnet or Ethereum Mainnet)." .
+
+ex:ExecutableFact a rdfs:Class ;
+    rdfs:label "Executable Fact" ;
+    rdfs:comment "An executable fact derived from a verified financial signal." .
+
+# ─────────────────────────────────────────────────────────────────────
+# CORE PROPERTIES
+# ─────────────────────────────────────────────────────────────────────
+
+ex:hasConfidence a rdfs:Property ;
+    rdfs:label "Confidence Score" ;
+    rdfs:range xsd:decimal ;
+    rdfs:comment "Confidence score for the signal (0.0 - 1.0). Must be 1.0 for 1003 Rule." .
+
+ex:hasVerificationSource a rdfs:Property ;
+    rdfs:label "Verification Source" ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Independent verification sources for the signal. Exactly 3 required (1003 Rule)." .
+
+ex:hasTargetAddress a rdfs:Property ;
+    rdfs:label "Target Address" ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Contract or wallet address targeted by this signal." .
+
+ex:hasActionType a rdfs:Property ;
+    rdfs:label "Action Type" ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Action type of this signal (e.g., SWAP, ARB, AUDIT)." .
+
+ex:hasSignalID a rdfs:Property ;
+    rdfs:label "Signal ID" ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Unique deterministic identifier for the signal (e.g., SHA256 hash)." .
+
+ex:observedAt a rdfs:Property ;
+    rdfs:label "Observation Timestamp" ;
+    rdfs:range xsd:dateTime ;
+    rdfs:comment "Timestamp when the signal was observed (UTC)." .
+
+# ─────────────────────────────────────────────────────────────────────
+# NETWORK CONTEXT PROPERTIES
 # ─────────────────────────────────────────────────────────────────────
 
 ex:hasNetworkType a rdfs:Property ;
+    rdfs:label "Network Type" ;
     rdfs:range xsd:string ;
     rdfs:comment "Network type: 'op-mainnet', 'op-sepolia', 'eth-mainnet', 'eth-sepolia'." .
 
 ex:hasChainID a rdfs:Property ;
+    rdfs:label "Chain ID" ;
     rdfs:range xsd:integer ;
     rdfs:comment "EVM chain ID (10 for OP Mainnet, 1 for Ethereum Mainnet)." .
 
 ex:hasSourceProvider a rdfs:Property ;
+    rdfs:label "Source Provider" ;
     rdfs:range xsd:string ;
     rdfs:comment "API provider that supplied the signal (e.g., 'Alchemy-OP-Mainnet')." .
 
 # ─────────────────────────────────────────────────────────────────────
-# ENHANCEMENT 2: Verification Metadata Properties
+# VERIFICATION METADATA PROPERTIES
 # ─────────────────────────────────────────────────────────────────────
 
 ex:hasVerificationConfidence a rdfs:Property ;
+    rdfs:label "Verification Confidence" ;
     rdfs:range xsd:decimal ;
     rdfs:comment "Confidence score for each verification source (0.0 - 1.0)." .
 
 ex:hasVerificationTimestamp a rdfs:Property ;
+    rdfs:label "Verification Timestamp" ;
     rdfs:range xsd:dateTime ;
     rdfs:comment "Timestamp when each verification source confirmed the signal." .
 
 ex:hasVerificationMatch a rdfs:Property ;
+    rdfs:Label "Verification Match" ;
     rdfs:range xsd:boolean ;
     rdfs:comment "Whether the verification source matches the primary signal." .
 
 # ─────────────────────────────────────────────────────────────────────
-# ENHANCEMENT 3: Cross-Network Verification Properties
+# CROSS-NETWORK VERIFICATION PROPERTIES
 # ─────────────────────────────────────────────────────────────────────
 
 ex:hasPrimaryNetwork a rdfs:Property ;
+    rdfs:label "Primary Network" ;
     rdfs:range xsd:string ;
     rdfs:comment "Primary network where signal was first observed." .
 
 ex:hasFallbackNetwork a rdfs:Property ;
+    rdfs:label "Fallback Network" ;
     rdfs:range xsd:string ;
     rdfs:comment "Fallback network used for verification." .
 
 ex:hasCrossNetworkVerification a rdfs:Property ;
+    rdfs:Label "Cross-Network Verification" ;
     rdfs:range xsd:boolean ;
     rdfs:comment "Whether the signal was verified across networks." .
 
-# =====================================================
-# SHACL SHAPE: Opportunity Validation
-# =====================================================
+# ─────────────────────────────────────────────────────────────────────
+# INFRASTRUCTURE CONTEXT PROPERTIES
+# ─────────────────────────────────────────────────────────────────────
 
-ex:OpportunityShape a sh:NodeShape ;
-    sh:targetClass ex:FinancialSignal ;
-    rdfs:comment "Validates FinancialSignal instances with multi-network context and 1003 Rule enforcement." ;
+ex:atBlockNumber a rdfs:Property ;
+    rdfs:label "Block Number" ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "The blockchain block number where the signal was observed." .
 
-    # ──────────────────────────────────────────
-    # 1003 RULE 1: Confidence MUST be exactly 1.0
-    # ──────────────────────────────────────────
-    sh:property [
-        sh:path ex:hasConfidence ;
-        sh:datatype xsd:decimal ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:minInclusive 1.0 ;
-        sh:maxInclusive 1.0 ;
-        rdfs:comment "Confidence score must exist exactly once and have a value of 1.0 (1003 Rule)." ;
-    ] ;
+ex:hasGasPriceGwei a rdfs:Property ;
+    rdfs:label "Gas Price" ;
+    rdfs:range xsd:decimal ;
+    rdfs:comment "Gas price at time of observation in Gwei." .
 
-    # ──────────────────────────────────────────
-    # 1003 RULE 2: Verification Sources MUST be exactly 3
-    # ──────────────────────────────────────────
-    sh:property [
-        sh:path ex:hasVerificationSource ;
-        sh:datatype xsd:string ;
-        sh:minCount 3 ;
-        sh:maxCount 3 ;
-        rdfs:comment "Exactly 3 independent verification sources are required (1003 Rule)." ;
-    ] ;
-
-    # ──────────────────────────────────────────
-    # ENHANCEMENT 1: Network Context
-    # ──────────────────────────────────────────
-    sh:property [
-        sh:path ex:hasNetworkType ;
-        sh:datatype xsd:string ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:in ( "op-mainnet" "op-sepolia" "eth-mainnet" "eth-sepolia" ) ;
-        rdfs:comment "Network must be one of the supported networks." ;
-    ] ;
-
-    sh:property [
-        sh:path ex:hasChainID ;
-        sh:datatype xsd:integer ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:in ( 10 11155420 1 11155111 ) ;
-        rdfs:comment "Chain ID must match the network type (10=OP Mainnet, 1=ETH Mainnet)." ;
-    ] ;
-
-    sh:property [
-        sh:path ex:hasSourceProvider ;
-        sh:datatype xsd:string ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        rdfs:comment "API provider that supplied the signal." ;
-    ] ;
-
-    # ──────────────────────────────────────────
-    # ENHANCEMENT 2: Verification Metadata
-    # ──────────────────────────────────────────
-    sh:property [
-        sh:path ex:hasVerificationConfidence ;
-        sh:datatype xsd:decimal ;
-        sh:minCount 3 ;
-        sh:maxCount 3 ;
-        sh:minInclusive 0.0 ;
-        sh:maxInclusive 1.0 ;
-        rdfs:comment "Confidence score for each verification source (must average to 1.0)." ;
-    ] ;
-
-    sh:property [
-        sh:path ex:hasVerificationTimestamp ;
-        sh:datatype xsd:dateTime ;
-        sh:minCount 3 ;
-        sh:maxCount 3 ;
-        rdfs:comment "Timestamp for each verification source." ;
-    ] ;
-
-    sh:property [
-        sh:path ex:hasVerificationMatch ;
-        sh:datatype xsd:boolean ;
-        sh:minCount 3 ;
-        sh:maxCount 3 ;
-        rdfs:comment "Match status for each verification source (all must be true)." ;
-    ] ;
-
-    # ──────────────────────────────────────────
-    # ENHANCEMENT 3: Cross-Network Verification
-    # ──────────────────────────────────────────
-    sh:property [
-        sh:path ex:hasPrimaryNetwork ;
-        sh:datatype xsd:string ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:in ( "op-mainnet" "eth-mainnet" ) ;
-        rdfs:comment "Primary network where signal was first observed." ;
-    ] ;
-
-    sh:property [
-        sh:path ex:hasFallbackNetwork ;
-        sh:datatype xsd:string ;
-        sh:minCount 0 ;
-        sh:maxCount 1 ;
-        sh:in ( "eth-mainnet" "op-mainnet" ) ;
-        rdfs:comment "Fallback network used if primary source fails." ;
-    ] ;
-
-    sh:property [
-        sh:path ex:hasCrossNetworkVerification ;
-        sh:datatype xsd:boolean ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        rdfs:comment "Whether signal was verified across networks (required for 1003 Rule)." ;
-    ] ;
-
-    # ──────────────────────────────────────────
-    # TARGETING PROPERTIES
-    # ──────────────────────────────────────────
-    sh:property [
-        sh:path ex:hasTargetAddress ;
-        sh:datatype xsd:string ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        rdfs:comment "The contract or wallet address targeted by this signal." ;
-    ] ;
-
-    sh:property [
-        sh:path ex:hasActionType ;
-        sh:datatype xsd:string ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        rdfs:comment "The specific action type (e.g., SWAP, ARB, AUDIT)." ;
-    ] ;
-
-    # ──────────────────────────────────────────
-    # IDENTITY & TRACEABILITY
-    # ──────────────────────────────────────────
-    sh:property [
-        sh:path ex:hasSignalID ;
-        sh:datatype xsd:string ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        rdfs:comment "Unique deterministic identifier (SHA256)." ;
-    ] ;
-
-    sh:property [
-        sh:path ex:observedAt ;
-        sh:datatype xsd:dateTime ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        rdfs:comment "Timestamp when the signal was observed (UTC)." ;
-    ] ;
-
-    # ──────────────────────────────────────────
-    # INFRASTRUCTURE CONTEXT
-    # ──────────────────────────────────────────
-    sh:property [
-        sh:path ex:atBlockNumber ;
-        sh:datatype xsd:integer ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        rdfs:comment "The blockchain block number where the signal was observed." ;
-    ] ;
-
-    sh:property [
-        sh:path ex:hasGasPriceGwei ;
-        sh:datatype xsd:decimal ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        rdfs:comment "Gas price at time of observation in Gwei." ;
-    ] ;
-
-    sh:property [
-        sh:path ex:isValidated ;
-        sh:datatype xsd:boolean ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        rdfs:comment "Indicates whether the signal passed validation." ;
-] .
+ex:isValidated a rdfs:Property ;
+    rdfs:label "Validation Status" ;
+    rdfs:range xsd:boolean ;
+    rdfs:comment "Indicates whether the signal passed validation." .
