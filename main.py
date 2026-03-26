@@ -6,17 +6,31 @@ import signal
 import logging
 import threading
 import sys
-from typing import Dict, Optional
+from pathlib import Path
+from typing import Dict, Optional, Any
+
+# Add project root to path for imports
+project_root = Path(__file__).parent.absolute()
+sys.path.insert(0, str(project_root))
+
 from padi_config import get_config as PadiConfig
+from schema_bootstrap import SchemaBootstrap
 from weaver import Weaver
 from executor import Executor
 
 # =====================================================
-# 🏛️ PADI BUREAU v2.1 — NAIROBI NODE-01
+# 🏛️ PADI BUREAU v2.3 — NAIROBI NODE-01
 # main.py — Multi-Network Production Entry Point / Process Manager
 # Supports: OP Mainnet, OP Sepolia, ETH Mainnet, ETH Sepolia
 # 
-# V2.1 NEW FEATURES:
+# V2.3 NEW FEATURES:
+# - ✅ Schema Bootstrapping System Integration
+# - ✅ Pre-flight Schema Validation
+# - ✅ Auto-generation of Minimal Schema Files
+# - ✅ Schema Health Monitoring
+# - ✅ Graceful Degradation Support
+# 
+# V2.1 LEGACY FEATURES (Maintained):
 # - ✅ PadiConfig v5.0 Singleton Integration
 # - ✅ Pre-flight Registry Handshake Integration
 # - ✅ Sovereign Configuration Alignment
@@ -69,10 +83,10 @@ signal.signal(signal.SIGINT, shutdown_handler)
 # ---------------------------
 def start_node():
     """
-    Start the PADI Bureau Node with multi-network support.
-    Initializes Weaver and Executor, displays network status,
+    Start the PADI Bureau Node with multi-network support and schema bootstrapping.
+    Initializes schema bootstrap, Weaver and Executor, displays network status,
     and runs the main event loop for signal processing and execution.
-    🛡️ v2.1: Uses PadiConfig singleton for all configuration access.
+    🛡️ v2.3: Integrates Schema Bootstrap System for pre-flight validation.
     """
     logger.info(f"--- 🏛️ STARTING PADI BUREAU: {config.node_id} ---")
     logger.info()
@@ -86,7 +100,53 @@ def start_node():
     logger.info(f"🛡️ Sovereign Kill-Switch: ACTIVE")
     logger.info()
 
-    # 2. Display Network Configuration
+    # 2. 🛡️ v2.3 NEW: Schema Bootstrapping
+    logger.info("=== 🛡️ Schema Bootstrapping ===")
+    schema_bootstrap = SchemaBootstrap(
+        schema_dir=config.get("schema_dir", "schema"),
+        allow_auto_generate=config.get("allow_schema_auto_generate", True),
+        require_all_files=config.get("require_all_schema_files", False)
+    )
+    
+    # Bootstrap schema files
+    bootstrap_success = schema_bootstrap.bootstrap(fail_fast=False)
+    
+    if not bootstrap_success:
+        logger.critical(
+            "❌ Schema bootstrapping failed. System cannot start without "
+            "valid schema files."
+        )
+        logger.critical("   Please check that the schema directory is accessible.")
+        logger.critical("   You can enable auto-generation by setting "
+                       "PADI_SCHEMA_AUTO_GENERATE=true in your .env file.")
+        return
+    
+    # Display bootstrap status
+    bootstrap_status = schema_bootstrap.get_bootstrap_status()
+    bootstrap_mode = bootstrap_status.get("bootstrap_mode", "UNKNOWN")
+    
+    if bootstrap_mode == "NORMAL":
+        logger.info("✅ Schema bootstrapping successful (NORMAL mode).")
+    elif bootstrap_mode == "DEGRADED":
+        logger.warning(
+            "⚠️  Schema bootstrapping successful (DEGRADED mode). "
+            "Auto-generated minimal schema files."
+        )
+        logger.warning(
+            "   System will operate with basic 1003 Rule enforcement. "
+            "For full validation capabilities, provide complete schema files."
+        )
+    else:
+        logger.error(f"❌ Schema bootstrapping failed: {bootstrap_mode}")
+        return
+    
+    # Display schema paths
+    schema_paths = schema_bootstrap.get_schema_paths()
+    logger.info(f"   SHACL Shapes: {schema_paths['shapes']}")
+    logger.info(f"   Ontology: {schema_paths['ontology']}")
+    logger.info()
+
+    # 3. Display Network Configuration
     logger.info("=== Network Configuration ===")
     configured_networks = config.get_configured_networks()
     for network_type, net_config in configured_networks.items():
@@ -100,7 +160,7 @@ def start_node():
     )
     logger.info()
 
-    # 3. Display Validation Rules
+    # 4. Display Validation Rules
     logger.info("=== Validation Rules (1003 Rule) ===")
     logger.info(
         f"  Required Confidence: "
@@ -116,7 +176,7 @@ def start_node():
     )
     logger.info()
 
-    # 4. Initialize Components
+    # 5. Initialize Components
     logger.info("=== Component Initialization ===")
     try:
         weaver = Weaver()
@@ -133,7 +193,7 @@ def start_node():
         logger.critical(traceback.format_exc())
         return
 
-    # 5. Display Network Status
+    # 6. Display Network Status
     logger.info("=== Network Status ===")
     weaver_status = weaver.get_network_status()
     executor_status = executor.get_network_status()
@@ -161,7 +221,26 @@ def start_node():
         logger.info(f"  {network_name}: {status}")
     logger.info()
 
-    # 6. Display Sovereign Kill-Switch Status
+    # 7. 🛡️ v2.3 NEW: Display Schema Health Status
+    logger.info("=== 🛡️ Schema Health Status ===")
+    schema_health = schema_bootstrap.get_health_status()
+    logger.info(f"   Schema Directory: {schema_health['schema_dir']}")
+    logger.info(
+        f"   Shapes Exists: {'✅' if schema_health['shapes_exists'] else '❌'}"
+    )
+    logger.info(f"   Shapes Size: {schema_health['shapes_size']} bytes")
+    logger.info(
+        f"   Ontology Exists: {'✅' if schema_health['ontology_exists'] else '❌'}"
+    )
+    logger.info(f"   Ontology Size: {schema_health['ontology_size']} bytes")
+    logger.info(f"   Bootstrap Mode: {schema_health['bootstrap_mode']}")
+    auto_generated = schema_health['generated_shapes'] or schema_health['generated_ontology']
+    logger.info(
+        f"   Auto-Generated: {'Yes' if auto_generated else 'No'}"
+    )
+    logger.info()
+
+    # 8. Display Sovereign Kill-Switch Status
     logger.info("=== 🛡️ Sovereign Kill-Switch Status ===")
     kill_switch_stats = executor.get_kill_switch_stats()
     total_rejected = sum(
@@ -171,7 +250,7 @@ def start_node():
     logger.info(f"  Total Actions Rejected by Kill-Switch: {total_rejected}")
     logger.info()
 
-    # 7. Main Event Loop
+    # 9. Main Event Loop
     logger.info("=== Main Event Loop ===")
     logger.info(
         f"📡 Node-01 is now LIVE and observing networks: "
@@ -188,14 +267,32 @@ def start_node():
     total_rejected_by_killswitch = 0
     last_stats_time = time.time()
     stats_report_interval = 300  # Report stats every 5 minutes (300 seconds)
+    schema_health_interval = 3600  # Check schema health every hour (3600 seconds)
+    last_schema_health_time = time.time()
 
     while not shutdown_event.is_set():
         try:
-            # A. Fetch and Validate Signals
+            # A. 🛡️ v2.3 NEW: Periodic Schema Health Check
+            current_time = time.time()
+            if current_time - last_schema_health_time >= schema_health_interval:
+                schema_health = schema_bootstrap.get_health_status()
+                if schema_health['bootstrap_mode'] in ['NORMAL', 'DEGRADED']:
+                    logger.debug(
+                        f"Schema Health: Shapes={schema_health['shapes_size']}B, "
+                        f"Ontology={schema_health['ontology_size']}B, "
+                        f"Mode={schema_health['bootstrap_mode']}"
+                    )
+                else:
+                    logger.warning(
+                        f"⚠️ Schema Health Degraded: Mode={schema_health['bootstrap_mode']}"
+                    )
+                last_schema_health_time = current_time
+
+            # B. Fetch and Validate Signals
             # Replace the empty list with a live feed from mempool/webhooks
             promoted_graphs = weaver.process_batch([])
 
-            # B. Execute Facts
+            # C. Execute Facts
             if promoted_graphs:
                 total_facts_promoted += len(promoted_graphs)
                 logger.info(
@@ -213,7 +310,7 @@ def start_node():
                     f"Receipts: {[r for r in receipts if r is not None]}"
                 )
 
-            # 🛡️ v2.1: Track Kill-Switch rejections
+            # D. Track Kill-Switch rejections
             kill_switch_stats = executor.get_kill_switch_stats()
             current_rejected = sum(
                 stats.get("rejected_by_killswitch", 0)
@@ -221,7 +318,7 @@ def start_node():
             )
             total_rejected_by_killswitch = current_rejected
 
-            # C. Periodic Statistics Reporting
+            # E. Periodic Statistics Reporting
             current_time = time.time()
             if current_time - last_stats_time >= stats_report_interval:
                 log_statistics(
@@ -230,11 +327,12 @@ def start_node():
                     total_transactions_executed,
                     total_rejected_by_killswitch,
                     weaver,
-                    executor
+                    executor,
+                    schema_bootstrap  # 🛡️ v2.3 NEW: Include schema health
                 )
                 last_stats_time = current_time
 
-            # D. Throttle RPC Polling
+            # F. Throttle RPC Polling
             time.sleep(polling_interval)
 
         except KeyboardInterrupt:
@@ -250,13 +348,31 @@ def start_node():
             # Optional: Could persist state or perform cleanup here
             pass
 
-    # 8. Shutdown Reporting
+    # 10. Shutdown Reporting
     logger.info()
     logger.info("=== Shutdown Report ===")
     logger.info(f"Total Signals Processed: {total_signals_processed}")
     logger.info(f"Total Facts Promoted: {total_facts_promoted}")
     logger.info(f"Total Transactions Executed: {total_transactions_executed}")
     logger.info(f"Total Rejected by Kill-Switch: {total_rejected_by_killswitch}")
+    
+    # 🛡️ v2.3 NEW: Final Schema Health Report
+    logger.info()
+    logger.info("=== 🛡️ Final Schema Health Report ===")
+    final_schema_health = schema_bootstrap.get_health_status()
+    logger.info(f"   Schema Directory: {final_schema_health['schema_dir']}")
+    logger.info(f"   Shapes Exists: {'✅' if final_schema_health['shapes_exists'] else '❌'}")
+    logger.info(f"   Ontology Exists: {'✅' if final_schema_health['ontology_exists'] else '❌'}")
+    logger.info(f"   Bootstrap Mode: {final_schema_health['bootstrap_mode']}")
+    auto_generated = (
+        final_schema_health['generated_shapes'] or
+        final_schema_health['generated_ontology']
+    )
+    if auto_generated:
+        logger.warning(
+            "   ⚠️  Schema files were auto-generated. "
+            "For production use, provide complete schema files."
+        )
     
     # Final execution statistics
     logger.info()
@@ -281,11 +397,12 @@ def log_statistics(
     total_transactions_executed: int,
     total_rejected_by_killswitch: int,
     weaver: Weaver,
-    executor: Executor
+    executor: Executor,
+    schema_bootstrap: SchemaBootstrap  # 🛡️ v2.3 NEW: Schema Bootstrap
 ):
     """
     Log operational statistics.
-    🛡️ v2.1: Added kill-switch tracking.
+    🛡️ v2.3: Added schema health monitoring.
     
     Args:
         total_signals_processed: Total number of signals processed
@@ -294,6 +411,7 @@ def log_statistics(
         total_rejected_by_killswitch: Total number of actions rejected by kill-switch
         weaver: Weaver instance
         executor: Executor instance
+        schema_bootstrap: SchemaBootstrap instance for health monitoring
     """
     logger.info()
     logger.info("=== Operational Statistics ===")
@@ -301,6 +419,26 @@ def log_statistics(
     logger.info(f"  Total Facts Promoted: {total_facts_promoted}")
     logger.info(f"  Total Transactions Executed: {total_transactions_executed}")
     logger.info(f"  Total Rejected by Kill-Switch: {total_rejected_by_killswitch}")
+    
+    # 🛡️ v2.3 NEW: Schema Health Status
+    schema_health = schema_bootstrap.get_health_status()
+    logger.info()
+    logger.info("  🛡️ Schema Health:")
+    logger.info(
+        f"    Bootstrap Mode: {schema_health['bootstrap_mode']}"
+    )
+    logger.info(
+        f"    Shapes: {'✅' if schema_health['shapes_exists'] else '❌'} "
+        f"({schema_health['shapes_size']} bytes)"
+    )
+    logger.info(
+        f"    Ontology: {'✅' if schema_health['ontology_exists'] else '❌'} "
+        f"({schema_health['ontology_size']} bytes)"
+    )
+    if schema_health['generated_shapes'] or schema_health['generated_ontology']:
+        logger.warning(
+            "    ⚠️  Auto-Generated Schema: System running with minimal schema files"
+        )
     
     # Execution statistics per network
     stats = executor.get_execution_stats()
@@ -340,7 +478,7 @@ def log_statistics(
             f"  ⚠️ Disconnected Networks: {', '.join(disconnected_networks)}"
         )
     
-    # 🛡️ v2.1: Kill-Switch statistics
+    # Kill-Switch statistics
     kill_switch_stats = executor.get_kill_switch_stats()
     if any(
         stats.get("rejected_by_killswitch", 0) > 0
@@ -364,12 +502,32 @@ def log_statistics(
 def run_test_mode():
     """
     Run a test mode with demo signals to validate multi-network functionality.
-    🛡️ v2.1: Uses PadiConfig singleton and tests Sovereign Kill-Switch.
+    🛡️ v2.3: Tests Schema Bootstrap System alongside Sovereign Kill-Switch.
     """
     logger.info("=== TEST MODE ===")
     logger.info("Running in test mode with demo signals...")
     logger.info()
 
+    # 🛡️ v2.3 NEW: Schema Bootstrap Validation
+    logger.info("🛡️ Initializing Schema Bootstrap...")
+    schema_bootstrap = SchemaBootstrap(
+        schema_dir=config.get("schema_dir", "schema"),
+        allow_auto_generate=config.get("allow_schema_auto_generate", True),
+        require_all_files=config.get("require_all_schema_files", False)
+    )
+    
+    bootstrap_success = schema_bootstrap.bootstrap(fail_fast=False)
+    
+    if bootstrap_success:
+        bootstrap_status = schema_bootstrap.get_bootstrap_status()
+        bootstrap_mode = bootstrap_status.get("bootstrap_mode", "UNKNOWN")
+        logger.info(
+            f"✅ Schema Bootstrap: {bootstrap_mode} mode"
+        )
+    else:
+        logger.error("❌ Schema Bootstrap failed")
+        return
+    
     # 🛡️ v2.1: Display configuration
     logger.info(f"📍 Node ID: {config.node_id}")
     logger.info(f"🔒 Simulation Mode: {config.simulation_mode}")
@@ -472,6 +630,30 @@ def run_test_mode():
                 f"🛡️ Rejected by Kill-Switch = {stats['rejected_by_killswitch']} | "
                 f"Total Rejected = {stats['total_rejected']}"
             )
+
+    # 🛡️ v2.3 NEW: Display Schema Health in Test Mode
+    logger.info()
+    logger.info("=== 🛡️ Schema Health Test Results ===")
+    schema_health = schema_bootstrap.get_health_status()
+    logger.info(
+        f"  Bootstrap Mode: {schema_health['bootstrap_mode']}"
+    )
+    logger.info(
+        f"  Shapes: {'✅' if schema_health['shapes_exists'] else '❌'} "
+        f"({schema_health['shapes_size']} bytes)"
+    )
+    logger.info(
+        f"  Ontology: {'✅' if schema_health['ontology_exists'] else '❌'} "
+        f"({schema_health['ontology_size']} bytes)"
+    )
+    auto_generated = (
+        schema_health['generated_shapes'] or
+        schema_health['generated_ontology']
+    )
+    if auto_generated:
+        logger.warning(
+            "  ⚠️  Auto-Generated Schema: Test mode using minimal schema files"
+        )
 
     # Display final statistics
     stats = executor.get_execution_stats()
