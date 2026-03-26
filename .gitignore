@@ -1,4 +1,50 @@
-# Python
+# =====================================================
+# PADI EXECUTOR v5.3 — Security Hardening
+# =====================================================
+
+# =====================================================
+# CRITICAL SECURITY EXCLUSIONS
+# =====================================================
+
+# Sensitive Configuration
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+secrets.json
+persistent_config.json
+wallet_config.json
+
+# =====================================================
+# PERSISTENT DATA (Contains nonce state — NEVER COMMIT)
+# =====================================================
+
+persist/
+persist/**/*.json
+persist/**/*.db
+!persist/.gitkeep
+
+# =====================================================
+# LOGS (May contain transaction hashes and diagnostic data)
+# =====================================================
+
+logs/
+logs/**/*.log
+logs/**/*.json
+*_transactions_*.json
+*_rdf_*.json
+*_audit_*.json
+*_export_*.json
+!logs/.gitkeep
+!logs/json_exports/.gitkeep
+!logs/rdf_exports/.gitkeep
+!logs/csv_exports/.gitkeep
+
+# =====================================================
+# STANDARD PYTHON EXCLUSIONS
+# =====================================================
+
 __pycache__/
 *.py[cod]
 *$py.class
@@ -20,30 +66,73 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
+# =====================================================
+# VIRTUAL ENVIRONMENTS
+# =====================================================
+
 venv/
 env/
 ENV/
+.venv/
 
-# Environment Variables
-.env
-.env.local
+# =====================================================
+# INTEGRATED DEVELOPMENT ENVIRONMENTS
+# =====================================================
 
-# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+.project
+.pydevproject
+.settings/
 
-# Logs
-*.log
-logs/
+# =====================================================
+# TESTING & COVERAGE
+# =====================================================
 
-# Testing
 .pytest_cache/
 .coverage
 htmlcov/
+.tox/
+.nox/
 
-# RDF Data
+# =====================================================
+# RDF DATA & EXPORTS (May contain sensitive metadata)
+# =====================================================
+
 data/rdf/*.ttl
 data/rdf/*.jsonld
+*.ttl
+*.jsonld
+!data/rdf/.gitkeep
+
+# =====================================================
+# OPERATING SYSTEM SPECIFIC
+# =====================================================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =====================================================
+# TEMPORARY FILES & BACKUPS
+# =====================================================
+
+*.tmp
+*.bak
+*.backup
+*_old.py
+*_backup.py
+.swp
+.swo
+
+# =====================================================
+# DATABASE & CACHE
+# =====================================================
+
+*.db
+*.sqlite
+*.sqlite3
+cache/
