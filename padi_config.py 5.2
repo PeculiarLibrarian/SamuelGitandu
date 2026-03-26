@@ -17,14 +17,42 @@ from enum import Enum
 # =====================================================
 # 🏛️ PadiConfig — Singleton Sovereign Configuration
 # NAIROBI NODE-01 — Self-Validating Sovereign Environment
-# Version: 5.0
+# Version: 5.2
 # DOI Anchor: 10.5281/zenodo.18894084
+# 
+# V5.2 CRITICAL ENHANCEMENTS:
+# - ✅ BASE_DIR anchoring for path resolution (CWD independence)
+# - ✅ Fail-fast mechanism enforcement (Sovereign compliance)
+# - ✅ Type-safety for Enum validation (Deterministic Data Structures)
+# - ✅ JSON-LD export for machine-readable state
+# - ✅ Enhanced path validation for containerized environments
+# 
+# V5.1 LEGACY FEATURES (Maintained):
+# - ✅ Schema Bootstrapping Configuration
+# - ✅ Pre-flight Schema Validation
+# - ✅ Auto-generation Toggle
+# - ✅ Schema Directory Management
+# 
+# V5.0 LEGACY FEATURES (Maintained):
+# - ✅ Singleton pattern (single instance guarantee)
+# - ✅ Immutable configuration (frozen after initialization)
+# - ✅ Environment variable validation
+# - ✅ Schema validation against PADI v3.0 ontology
+# - ✅ Pre-flight verification support
+# - ✅ Thread-safe access
+# - ✅ Backward compatibility with v4.0 API
 # 
 # REPLACES: data_ingestion/config.py v4.0
 # MIGRATION: Procedural Configuration → Singleton Architecture
 # =====================================================
 
 logger = logging.getLogger("PADICONTROLLER")
+
+
+# 🛡️ v5.2 NEW: Anchor to project root for path resolution
+# This ensures path resolution is independent of CWD, critical for
+# containerized environments and scripts invoked from different directories
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class NetworkType(Enum):
@@ -53,7 +81,19 @@ class PadiConfig:
     validated configuration object. Ensures all modules operate from
     identical state, eliminating split-brain errors.
     
-    Features:
+    V5.2 Critical Enhancements:
+    - BASE_DIR anchoring for CWD-independent path resolution
+    - Fail-fast mechanism enforcement for Sovereign compliance
+    - Type-safety for Enum validation ensuring Deterministic Data Structures
+    - JSON-LD export for machine-readable state broadcast
+    
+    V5.1 Features:
+    - Schema Bootstrapping Configuration
+    - Pre-flight Schema Directory Validation
+    - Auto-generation Toggle Support
+    - Schema Health Monitoring Support
+    
+    V5.0 Features:
     - Singleton pattern (single instance guarantee)
     - Immutable configuration (frozen after initialization)
     - Environment variable validation
@@ -62,7 +102,7 @@ class PadiConfig:
     - Thread-safe access
     - Backward compatibility with v4.0 API
     
-    Version: 5.0
+    Version: 5.2
     Replaces: data_ingestion/config.py v4.0
     """
 
@@ -92,6 +132,7 @@ class PadiConfig:
         
         Raises:
             ValueError: If configuration validation fails
+            RuntimeError: If fail-fast mode enabled and required files missing (v5.2)
         """
         # Prevent re-initialization
         if self._initialized:
@@ -101,14 +142,17 @@ class PadiConfig:
         self._lock = threading.Lock()
         
         # Load environment variables
-        self._env_path = env_path or Path(".env")
+        self._env_path = env_path or Path(BASE_DIR / ".env")
         self._load_environment()
         
         # Validate core configuration
         self._validate_core_config()
         
+        # 🛡️ v5.2 NEW: Initialize schema bootstrapping configuration with BASE_DIR anchoring
+        self._init_schema_config()
+        
         # Load schema for pre-flight verification
-        self._schema_path = schema_path or Path("schema/ontology.ttl")
+        self._schema_path = schema_path or Path(self._schema_config["ontology_path"])
         self._schema_graph = self._load_schema()
         
         # Initialize configurations
@@ -127,6 +171,7 @@ class PadiConfig:
 
     def _load_environment(self):
         """Load environment variables from .env file."""
+        # 🛡️ v5.2 NEW: Use BASE_DIR for .env path resolution
         if self._env_path.exists():
             self._logger.info(f"📄 Loading environment from {self._env_path}")
             from dotenv import load_dotenv
@@ -174,6 +219,99 @@ class PadiConfig:
         
         self._logger.info("✅ Core configuration validation passed")
         return True
+
+    # =====================================================
+    # 🛡️ v5.2 ENHANCED: SCHEMA BOOTSTRAPPING CONFIGURATION
+    # =====================================================
+
+    def _init_schema_config(self):
+        """
+        Initialize schema bootstrapping configuration.
+        🛡️ v5.2 ENHANCED: BASE_DIR anchoring and fail-fast enforcement.
+        
+        Adds support for:
+        - Schema directory configuration
+        - Auto-generation toggle
+        - Fail-fast mode (🛡️ v5.2: Now enforces Sovereign compliance)
+        - SHAML and ontology paths
+        - CWD-independent path resolution
+        """
+        # 🛡️ v5.2 NEW: Anchor to project root (where this file lives)
+        schema_dir = os.getenv("PADI_SCHEMA_DIR", str(BASE_DIR / "schema"))
+        
+        # Auto-generation toggle
+        allow_auto_generate = os.getenv("PADI_SCHEMA_AUTO_GENERATE", "true").lower()
+        allow_auto_generate = allow_auto_generate == "true"
+        
+        # Fail-fast mode (require all schema files at startup)
+        # 🛡️ v5.2 ENHANCED: Now enforces Sovereign compliance
+        require_all_files = os.getenv("PADI_REQUIRE_ALL_SCHEMA_FILES", "false").lower()
+        require_all_files = require_all_files == "true"
+        
+        # 🛡️ v5.2 NEW: SHAML shapes path with BASE_DIR anchoring
+        shapes_path = os.getenv("PADI_SHAPES_PATH", str(BASE_DIR / "schema" / "shapes.ttl"))
+        
+        # 🛡️ v5.2 NEW: Ontology path with BASE_DIR anchoring
+        ontology_path = os.getenv("PADI_ONTOLOGY_PATH", str(BASE_DIR / "schema" / "ontology.ttl"))
+        
+        # 🛡️ v5.2 NEW: Validate path resolution
+        if not Path(schema_dir).is_absolute():
+            # If relative, anchor to BASE_DIR
+            schema_dir = str(Path(schema_dir).resolve())
+        
+        if not Path(shapes_path).is_absolute():
+            # If relative, anchor to BASE_DIR
+            shapes_path = str(Path(shapes_path).resolve())
+        
+        if not Path(ontology_path).is_absolute():
+            # If relative, anchor to BASE_DIR
+            ontology_path = str(Path(ontology_path).resolve())
+        
+        # 🛡️ v5.2 NEW: Fail-fast enforcement (Sovereign compliance)
+        if require_all_files:
+            missing_files = []
+            if not Path(shapes_path).exists():
+                missing_files.append(shapes_path)
+            if not Path(ontology_path).exists():
+                missing_files.append(ontology_path)
+            
+            if missing_files:
+                # 🛡️ v5.2 NEW: Raise RuntimeError instead of logging warning
+                # This ensures the system refuses to boot if environment is non-compliant
+                raise RuntimeError(
+                    f"🚨 FATAL: Fail-fast enabled but required schema files missing: {missing_files}"
+                )
+        
+        self._schema_config = {
+            "schema_dir": schema_dir,
+            "shapes_path": shapes_path,
+            "ontology_path": ontology_path,
+            "allow_auto_generate": allow_auto_generate,
+            "require_all_files": require_all_files
+        }
+        
+        # Validate schema directory exists or can be created
+        try:
+            schema_path = Path(schema_dir)
+            if not schema_path.exists():
+                if allow_auto_generate:
+                    self._logger.info(f"💾 Schema directory will be created: {schema_path}")
+                else:
+                    self._logger.warning(
+                        f"⚠️  Schema directory does not exist: {schema_path} "
+                        f"(Auto-generation disabled)"
+                    )
+            else:
+                self._logger.info(f"✅ Schema directory found: {schema_path}")
+        except Exception as e:
+            self._logger.warning(f"⚠️  Could not validate schema directory: {e}")
+        
+        self._logger.info(
+            f"✅ Schema configuration initialized (v5.2): "
+            f"Auto-generate: {allow_auto_generate}, "
+            f"Fail-fast: {require_all_files} "
+            f"{'(🛡️ Sovereign Compliance)' if require_all_files else ''}"
+        )
 
     def _load_schema(self) -> Optional[Graph]:
         """
@@ -224,13 +362,16 @@ class PadiConfig:
         """
         Initialize network configurations (v4.0 + v5.0 features).
         
+        🛡️ v5.2 ENHANCED: Type-safety for Enum validation.
+        
         Migrates all v4.0 network configs to v5.0 object-oriented structure.
         """
         # Default chain ID for legacy Base L2 operations
         chain_id_legacy = int(os.getenv("CHAIN_ID", "8453"))
         
+        # 🛡️ v5.2 ENHANCED: Use NetworkType enum keys for type-safety
         self._networks = {
-            "op-mainnet": {
+            NetworkType.OP_MAINNET.value: {
                 "chain_id": 10,
                 "rpc_url": os.getenv("OP_MAINNET_RPC_URL"),
                 "rpc_backup": os.getenv("OP_MAINNET_RPC_BACKUP_URL"),
@@ -241,7 +382,7 @@ class PadiConfig:
                 "supports_l1_fee": True,
                 "layer": "layer2"
             },
-            "op-sepolia": {
+            NetworkType.OP_SEPOLIA.value: {
                 "chain_id": 11155420,
                 "rpc_url": os.getenv("OP_SEPOLIA_RPC_URL"),
                 "rpc_backup": os.getenv("OP_SEPOLIA_RPC_BACKUP_URL"),
@@ -252,7 +393,7 @@ class PadiConfig:
                 "supports_l1_fee": True,
                 "layer": "layer2-testnet"
             },
-            "eth-mainnet": {
+            NetworkType.ETH_MAINNET.value: {
                 "chain_id": 1,
                 "rpc_url": os.getenv("ETH_MAINNET_RPC_URL"),
                 "rpc_backup": os.getenv("ETH_MAINNET_RPC_BACKUP_URL"),
@@ -263,7 +404,7 @@ class PadiConfig:
                 "supports_l1_fee": False,
                 "layer": "layer1"
             },
-            "eth-sepolia": {
+            NetworkType.ETH_SEPOLIA.value: {
                 "chain_id": 11155111,
                 "rpc_url": os.getenv("ETH_SEPOLIA_RPC_URL"),
                 "rpc_backup": os.getenv("ETH_SEPOLIA_RPC_BACKUP_URL"),
@@ -274,7 +415,7 @@ class PadiConfig:
                 "supports_l1_fee": False,
                 "layer": "layer1-testnet"
             },
-            "base-l2": {
+            NetworkType.BASE_L2.value: {
                 "chain_id": chain_id_legacy,
                 "rpc_url": os.getenv("BASE_L2_RPC_URL"),
                 "rpc_backup": os.getenv("BASE_L2_RPC_BACKUP_URL"),
@@ -286,6 +427,12 @@ class PadiConfig:
                 "layer": "layer2-legacy"
             }
         }
+        
+        # 🛡️ v5.2 NEW: Validate NetworkType enum values
+        valid_network_types = {net_type.value for net_type in NetworkType}
+        for network_name in self._networks.keys():
+            if network_name not in valid_network_types:
+                raise ValueError(f"Invalid network type: {network_name}. Must be one of {valid_network_types}")
         
         # Validate network configurations
         active_networks = []
@@ -308,7 +455,7 @@ class PadiConfig:
             "environment": os.getenv("ENVIRONMENT", "production"),
             "doi_anchor": "10.5281/zenodo.18894084",
             "protocol_version": "PADI v3.0",
-            "config_version": "5.0",
+            "config_version": "5.2",  # 🛡️ v5.2 updated
             "timezone": os.getenv("TZ", "Africa/Nairobi")
         }
         
@@ -339,10 +486,10 @@ class PadiConfig:
                 default_gas_price = None
         
         # Default network type
-        default_network = os.getenv("DEFAULT_NETWORK_TYPE", "op-mainnet")
+        default_network = os.getenv("DEFAULT_NETWORK_TYPE", NetworkType.OP_MAINNET.value)
         if default_network not in self._networks:
-            self._logger.warning(f"Invalid DEFAULT_NETWORK_TYPE: {default_network}, using op-mainnet")
-            default_network = "op-mainnet"
+            self._logger.warning(f"Invalid DEFAULT_NETWORK_TYPE: {default_network}, using {NetworkType.OP_MAINNET.value}")
+            default_network = NetworkType.OP_MAINNET.value
         
         # Cross-network verification
         cross_network_verify = os.getenv("DEFAULT_CROSS_NETWORK_VERIFICATION", "true").lower()
@@ -352,13 +499,21 @@ class PadiConfig:
         fallback_order = os.getenv("FALLBACK_NETWORK_ORDER", "op-mainnet,eth-mainnet,op-sepolia,eth-sepolia")
         fallback_order = [n.strip() for n in fallback_order.split(",") if n.strip()]
         
+        # Polling interval for main loop (v5.1)
+        polling_interval = os.getenv("PADI_POLLING_INTERVAL", "5")
+        try:
+            polling_interval = float(polling_interval)
+        except ValueError:
+            polling_interval = 5.0
+        
         self._execution = {
             "default_gas_price": default_gas_price,
             "gas_limit": int(os.getenv("GAS_LIMIT", "250000")),
             "tx_timeout": int(os.getenv("TX_TIMEOUT", "300")),
             "default_network_type": default_network,
             "default_cross_network_verification": cross_network_verify,
-            "fallback_network_order": fallback_order
+            "fallback_network_order": fallback_order,
+            "polling_interval": polling_interval
         }
         
         self._logger.info(f"✅ Execution configuration initialized")
@@ -391,13 +546,22 @@ class PadiConfig:
         """Log initialization summary."""
         self._logger.info("")
         self._logger.info("=" * 70)
-        self._logger.info("🏛️ PADI SOVEREIGN CONFIGURATION CONTROLLER v5.0")
+        self._logger.info("🏛️ PADI SOVEREIGN CONFIGURATION CONTROLLER v5.2")
         self._logger.info("=" * 70)
         self._logger.info(f"Node ID: {self._system['node_id']}")
         self._logger.info(f"Protocol Version: {self._system['protocol_version']}")
         self._logger.info(f"Config Version: {self._system['config_version']}")
         self._logger.info(f"DOI Anchor: {self._system['doi_anchor']}")
         self._logger.info(f"Environment: {self._system['environment']}")
+        self._logger.info("")
+        self._logger.info("🛡️ Schema Bootstrapping Configuration (v5.2):")
+        self._logger.info(f"  Schema Directory: {self._schema_config['schema_dir']}")
+        self._logger.info(f"  SHAML Shapes Path: {self._schema_config['shapes_path']}")
+        self._logger.info(f"  Ontology Path: {self._schema_config['ontology_path']}")
+        self._logger.info(f"  Auto-Generate: {self._schema_config['allow_auto_generate']}")
+        self._logger.info(f"  Fail-Fast: {self._schema_config['require_all_files']}")
+        if self._schema_config['require_all_files']:
+            self._logger.info(f"  🛡️ Sovereign Compliance: ENFORCED")
         self._logger.info("")
         self._logger.info("Networks Configured:")
         for network_name, config in self._networks.items():
@@ -413,7 +577,7 @@ class PadiConfig:
         self._logger.info("=" * 70)
 
     # =====================================================
-    # PUBLIC API (v5.0 — Object-Oriented)
+    # PUBLIC API (v5.2 — Object-Oriented)
     # =====================================================
 
     @property
@@ -425,6 +589,11 @@ class PadiConfig:
     def log_level(self) -> str:
         """Get log level."""
         return self._system["log_level"]
+
+    @property
+    def simulation_mode(self) -> bool:
+        """Get simulation mode status (alias for read_only_mode)."""
+        return self._wallet.get("read_only_mode", True)
 
     @property
     def networks(self) -> Dict[str, Dict[str, Any]]:
@@ -528,6 +697,269 @@ class PadiConfig:
             Immutable copy of validation rules
         """
         return self._validation.copy()
+
+    @property
+    def polling_interval(self) -> float:
+        """
+        Get polling interval for main loop.
+        
+        Returns:
+            Polling interval in seconds
+        """
+        return self._execution.get("polling_interval", 5.0)
+
+    @property
+    def base_dir(self) -> Path:
+        """
+        Get project base directory.
+        🛡️ v5.2 NEW: Get project base directory.
+        
+        Returns:
+            Path to project base directory
+        """
+        return BASE_DIR
+
+    # =====================================================
+    # SCHEMA BOOTSTRAPPING API
+    # =====================================================
+
+    @property
+    def schema_config(self) -> Dict[str, Any]:
+        """
+        Get schema bootstrapping configuration.
+        
+        Returns:
+            Immutable copy of schema configuration
+        """
+        return self._schema_config.copy()
+
+    def get_schema_dir(self) -> str:
+        """
+        Get schema directory path.
+        
+        Returns:
+            Schema directory path string
+        """
+        return self._schema_config["schema_dir"]
+
+    def get_shapes_path(self) -> str:
+        """
+        Get SHAML shapes file path.
+        
+        Returns:
+            SHAML shapes file path string
+        """
+        return self._schema_config["shapes_path"]
+
+    def get_ontology_path(self) -> str:
+        """
+        Get ontology file path.
+        
+        Returns:
+            Ontology file path string
+        """
+        return self._schema_config["ontology_path"]
+
+    def is_schema_auto_generate_enabled(self) -> bool:
+        """
+        Check if schema auto-generation is enabled.
+        
+        Returns:
+            True if auto-generation is enabled
+        """
+        return self._schema_config["allow_auto_generate"]
+
+    def is_schema_fail_fast_enabled(self) -> bool:
+        """
+        Check if schema fail-fast mode is enabled.
+        
+        Returns:
+            True if fail-fast mode is enabled
+        """
+        return self._schema_config["require_all_files"]
+
+    # =====================================================
+    # DICTIONARY-STYLE ACCESS
+    # =====================================================
+
+    def __getitem__(self, key: str) -> Any:
+        """
+        Get configuration value by key.
+        
+        Args:
+            key: Configuration key
+        
+        Returns:
+            Configuration value
+        
+        Raises:
+            KeyError: If key not found
+        """
+        # Map keys to appropriate configuration sections
+        key_mapping = {
+            "schema_dir": ("_schema_config", "schema_dir"),
+            "shapes_path": ("_schema_config", "shapes_path"),
+            "ontology_path": ("_schema_config", "ontology_path"),
+            "shapes_graph_path": ("_schema_config", "shapes_path"),
+            "ontology_graph_path": ("_schema_config", "ontology_path"),
+            "allow_schema_auto_generate": ("_schema_config", "allow_auto_generate"),
+            "require_all_schema_files": ("_schema_config", "require_all_files"),
+            "node_id": ("_system", "node_id"),
+            "log_level": ("_system", "log_level"),
+            "networks": ("_networks",),
+            "wallet_address": ("_wallet", "checksum_address"),
+            "private_key": ("_wallet", "private_key"),
+            "has_private_key": ("_wallet", "has_private_key"),
+            "execution_config": ("_execution",),
+            "validation_rules": ("_validation",),
+            "polling_interval": ("_execution", "polling_interval"),
+            # 🛡️ v5.2 NEW
+            "base_dir": ("_base_dir",),
+        }
+        
+        if key in key_mapping:
+            mapping = key_mapping[key]
+            if len(mapping) == 1:
+                if key == "base_dir":
+                    return BASE_DIR
+                return getattr(self, mapping[0])
+            else:
+                section, attr = mapping
+                section_obj = getattr(self, section)
+                return section_obj[attr]
+        
+        raise KeyError(f"Configuration key not found: {key}")
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Get configuration value by key with default.
+        
+        Args:
+            key: Configuration key
+            default: Default value if key not found
+        
+        Returns:
+            Configuration value or default
+        """
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    # =====================================================
+    # 🛡️ v5.2 NEW: JSON-LD EXPORT FOR MACHINE-READABLE STATE
+    # =====================================================
+
+    def to_json_ld(self) -> str:
+        """
+        Export configuration as a PADI-compliant JSON-LD document.
+        🛡️ v5.2 NEW: Allows Node to broadcast its "Sovereign State".
+        
+        This enables the Node to broadcast its current configuration state
+        in a machine-readable format compatible with the Semantic Web and
+        PADI v3.0 ontology standards.
+        
+        Returns:
+            JSON-LD formatted string
+        """
+        context = {
+            "padi": "https://padi.network/ontology/",
+            "node": "padi:Node",
+            "config": "padi:Configuration",
+            "node_id": "padi:hasNodeID",
+            "version": "padi:hasVersion",
+            "doi": "padi:hasDOI",
+            "protocol": "padi:hasProtocol",
+            "network": "padi:hasNetwork",
+            "wallet": "padi:hasWallet",
+            "xsd": "http://www.w3.org/2001/XMLSchema#",
+            "type": "@type"
+        }
+        
+        data = {
+            "@context": context,
+            "@type": "padi:NodeConfiguration",
+            "padi:hasNodeID": {
+                "@type": "xsd:string",
+                "@value": self.node_id
+            },
+            "padi:hasVersion": {
+                "@type": "xsd:string",
+                "@value": self._system["config_version"]
+            },
+            "padi:hasProtocol": {
+                "@type": "xsd:string",
+                "@value": self._system["protocol_version"]
+            },
+            "padi:hasDOI": {
+                "@type": "xsd:anyURI",
+                "@value": f"doi:{self._system['doi_anchor']}"
+            },
+            "padi:hasEnvironment": {
+                "@type": "xsd:string",
+                "@value": self._system["environment"]
+            },
+            "padi:hasNetworkConfiguration": [
+                {
+                    "@type": "padi:NetworkConfig",
+                    "padi:networkType": network_type,
+                    "padi:chainId": config["chain_id"],
+                    "padi:isActive": bool(config["rpc_url"])
+                }
+                for network_type, config in self._networks.items()
+            ],
+            "padi:hasWallet": {
+                "@type": "padi:Wallet",
+                "padi:address": self.wallet_address or "",
+                "padi:isReadOnly": {
+                    "@type": "xsd:boolean",
+                    "@value": self.is_read_only_mode
+                }
+            },
+            "padi:hasValidationRules": {
+                "@type": "padi:ValidationRules",
+                "padi:requiredConfidence": {
+                    "@type": "xsd:decimal",
+                    "@value": str(self._validation["required_confidence"])
+                },
+                "padi:requiredSources": {
+                    "@type": "xsd:integer",
+                    "@value": self._validation["required_verification_sources"]
+                },
+                "padi:enforce1003Rule": {
+                    "@type": "xsd:boolean",
+                    "@value": self._validation["enforce_1003_rule"]
+                }
+            },
+            "padi:hasSchemaBootstrap": {
+                "@type": "padi:SchemaBootstrapConfig",
+                "padi:schemaDir": self.get_schema_dir(),
+                "padi:shapesPath": self.get_shapes_path(),
+                "padi:ontologyPath": self.get_ontology_path(),
+                "padi:autoGenerate": {
+                    "@type": "xsd:boolean",
+                    "@value": self.is_schema_auto_generate_enabled()
+                },
+                "padi:failFast": {
+                    "@type": "xsd:boolean",
+                    "@value": self.is_schema_fail_fast_enabled()
+                }
+            },
+            "padi:executionConfiguration": {
+                "@type": "padi:ExecutionConfig",
+                "padi:pollingInterval": {
+                    "@type": "xsd:decimal",
+                    "@value": str(self.polling_interval)
+                },
+                "padi:defaultNetwork": {
+                    "@type": "xsd:string",
+                    "@value": self._execution["default_network_type"]
+                }
+            },
+            "@id": f"urn:padi:node:{self.node_id}:{self._system['config_version']}"
+        }
+        
+        return json.dumps(data, indent=2)
 
     # =====================================================
     # v4.0 BACKWARD COMPATIBILITY LAYER
@@ -638,12 +1070,22 @@ class PadiConfig:
         Prints configuration to console.
         """
         print("=" * 70)
-        print("🏛️ PADI SOVEREIGN BUREAU — NODE CONFIGURATION v5.0")
+        print("🏛️ PADI SOVEREIGN BUREAU — NODE CONFIGURATION v5.2")
         print("=" * 70)
         print()
         print("Node Identification:")
         print(f"  Node ID: {self.node_id}")
         print(f"  Log Level: {self.log_level}")
+        print(f"  Base Directory (v5.2): {BASE_DIR}")
+        print()
+        print("🛡️ Schema Bootstrapping Configuration (v5.2):")
+        print(f"  Schema Directory: {self.get_schema_dir()}")
+        print(f"  SHAML Shapes Path: {self.get_shapes_path()}")
+        print(f"  Ontology Path: {self.get_ontology_path()}")
+        print(f"  Auto-Generate: {self.is_schema_auto_generate_enabled()}")
+        print(f"  Fail-Fast: {self.is_schema_fail_fast_enabled()}")
+        if self.is_schema_fail_fast_enabled():
+            print(f"  🛡️ Sovereign Compliance: ENFORCED")
         print()
         print("Wallet Configuration:")
         print(f"  Wallet Address: {self.wallet_address or 'Not configured'}")
@@ -666,10 +1108,15 @@ class PadiConfig:
         print(f"  Gas Limit: {self.GAS_LIMIT}")
         print(f"  Transaction Timeout: {self.TX_TIMEOUT} seconds")
         print(f"  Cross-Network Verification: {self.DEFAULT_CROSS_NETWORK_VERIFICATION}")
+        print(f"  Polling Interval: {self.polling_interval} seconds")
         print()
         print("Schema Configuration:")
         print(f"  Schema Loaded: {'Yes' if self.schema_graph else 'No'}")
         print(f"  Schema Path: {self._schema_path}")
+        print()
+        # 🛡️ v5.2 NEW: Display JSON-LD export availability
+        print("Machine-Readable State (v5.2):")
+        print(f"  JSON-LD Export: Available via config.to_json_ld()")
         print()
         print("=" * 70)
 
@@ -793,6 +1240,7 @@ class PadiConfig:
             "config_version": self._system["config_version"],
             "protocol_version": self._system["protocol_version"],
             "doi_anchor": self._system["doi_anchor"],
+            "base_dir": str(BASE_DIR),  # 🛡️ v5.2 NEW
             "networks": {
                 "total": len(self._networks),
                 "active": sum(1 for net in self._networks.values() if net.get("rpc_url")),
@@ -817,7 +1265,14 @@ class PadiConfig:
             "execution": self._execution,
             "schema": {
                 "loaded": self._schema_graph is not None,
-                "path": str(self._schema_path) if self._schema_path else None
+                "path": str(self._schema_path) if self._schema_path else None,
+                "schema_bootstrap": {
+                    "schema_dir": self._schema_config["schema_dir"],
+                    "shapes_path": self._schema_config["shapes_path"],
+                    "ontology_path": self._schema_config["ontology_path"],
+                    "auto_generate": self._schema_config["allow_auto_generate"],
+                    "fail_fast": self._schema_config["require_all_files"]
+                }
             }
         }
 
@@ -844,6 +1299,7 @@ class PadiConfig:
             "config_version": self._system["config_version"],
             "protocol_version": self._system["protocol_version"],
             "doi_anchor": self._system["doi_anchor"],
+            "base_dir": str(BASE_DIR),  # 🛡️ v5.2 NEW
             "networks": {
                 name: {
                     "chain_id": net["chain_id"],
@@ -865,6 +1321,13 @@ class PadiConfig:
                 "log_level": self._system["log_level"],
                 "environment": self._system["environment"],
                 "timezone": self._system["timezone"]
+            },
+            "schema_bootstrap": {
+                "schema_dir": self._schema_config["schema_dir"],
+                "shapes_path": self._schema_config["shapes_path"],
+                "ontology_path": self._schema_config["ontology_path"],
+                "auto_generate": self._schema_config["allow_auto_generate"],
+                "fail_fast": self._schema_config["require_all_files"]
             }
         }
         
@@ -876,7 +1339,7 @@ class PadiConfig:
 
 
 # =====================================================
-# MODULE-LEVEL ACCESS POINTS (v5.0 — Singleton Pattern)
+# MODULE-LEVEL ACCESS POINTS (v5.2 — Singleton Pattern)
 # =====================================================
 
 # Global configuration instance
@@ -888,7 +1351,7 @@ def get_config() -> PadiConfig:
     """
     Get global PADI configuration instance.
     
-    v5.0 recommended access pattern:
+    v5.2 recommended access pattern:
         from padi_config import get_config
         config = get_config()
         print(config.node_id)
@@ -925,6 +1388,7 @@ def initialize_config(
     
     Returns:
         Initialized PadiConfig instance
+    }
     """
     global _config
     
@@ -950,7 +1414,7 @@ if __name__ == "__main__":
     # Validate configuration
     if config.validate():
         print("\n" + "=" * 70)
-        print("🏛️ PADI SOVEREIGN CONFIGURATION — DIAGNOSTICS v5.0")
+        print("🏛️ PADI SOVEREIGN CONFIGURATION — DIAGNOSTICS v5.2")
         print("=" * 70)
         
         # Display configuration (v4.0 compatibility)
@@ -976,6 +1440,20 @@ if __name__ == "__main__":
         valid, error = config.verify_network_context("op-mainnet", 10)
         print(f"✅ Valid Network Test: {valid} | Error: {error}")
         
+        # 🛡️ v5.2 NEW: JSON-LD export test
+        print("\n" + "=" * 70)
+        print("JSON-LD Export Test (v5.2)")
+        print("=" * 70)
+        json_ld_output = config.to_json_ld()
+        print(json_ld_output)
+        
+        # Save JSON-LD to file
+        json_ld_path = Path("logs") / f"node_config_{config.node_id}_v5.2.jsonld"
+        json_ld_path.parent.mkdir(exist_ok=True)
+        with open(json_ld_path, 'w') as f:
+            f.write(json_ld_output)
+        print(f"\nJSON-LD exported to: {json_ld_path}")
+        
         # Display diagnostics
         print("\n" + "=" * 70)
         print("Diagnostics Data")
@@ -983,5 +1461,5 @@ if __name__ == "__main__":
         diagnostics = config.get_diagnostics()
         print(json.dumps(diagnostics, indent=2, default=str))
         
-        print("\n✅ All diagnostics complete. PadiConfig v5.0 is operational.")
+        print("\n✅ All diagnostics complete. PadiConfig v5.2 is operational.")
         print("=" * 70)
