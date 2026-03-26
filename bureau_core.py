@@ -1,35 +1,184 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import os
+from pathlib import Path
+from typing import List, Optional, Dict, Tuple, Any
 from rdflib import Graph, Namespace, Literal, RDF, XSD
 from pyshacl import validate
 from datetime import datetime
-from typing import List, Optional, Dict, Tuple
+
+# ✅ FIXED: Import PadiConfig for dynamic network configuration
+from padi_config import get_config as PadiConfig
+
+# =====================================================
+# 🏛️ PADI BUREAU CORE v1.2 — NAIROBI NODE-01
+# SHACL-ENFORCED VALIDATION WITH PATH VALIDATION
+# =====================================================
 
 # 1. NAMESPACE CONFIGURATION
-# Must match ontology.ttl and shapes.ttl exactly
 EX = Namespace("http://padi.u/schema#")
 
-# 2. NETWORK CONFIGURATION
-NETWORK_CHAIN_ID_MAP = {
-    "op-mainnet": 10,
-    "op-sepolia": 11155420,
-    "eth-mainnet": 1,
-    "eth-sepolia": 11155111
-}
+# =====================================================
+# 🛡️ V1.2 NEW: PATH VALIDATION FUNCTIONS
+# =====================================================
 
-NETWORK_PROVIDER_MAP = {
-    "op-mainnet": "Alchemy-OP-Mainnet",
-    "op-sepolia": "Alchemy-OP-Sepolia",
-    "eth-mainnet": "Alchemy-ETH-Mainnet",
-    "eth-sepolia": "Alchemy-ETH-Sepolia"
-}
+def validate_shacl_paths(
+    shapes_path: Optional[str] = None,
+    ontology_path: Optional[str] = None
+) -> Tuple[bool, str, str, str]:
+    """
+    Validate SHAML file paths exist before running validation.
+    
+    This function prevents the "Ghost" Pathing vulnerability by
+    verifying that SHAML and ontology files exist before attempting
+    validation.
+    
+    Args:
+        shapes_path: Path to shapes.ttl file (optional)
+        ontology_path: Path to ontology.ttl file (optional)
+    
+    Returns:
+        is_valid (bool): True if both paths are valid
+        validated_shapes_path (str): Validated shapes file path
+        validated_ontology_path (str): Validated ontology file path
+        error_message (str): Error message if validation fails
+    """
+    # Load PadiConfig for default paths
+    config = PadiConfig()
+    
+    # Get default paths from PadiConfig or use fallback paths
+    default_shapes_path = config.get("shapes_graph_path", "schema/shapes.ttl")
+    default_ontology_path = config.get("ontology_graph_path", "schema/ontology.ttl")
+    
+    # Use provided paths or default paths
+    shapes_path = shapes_path or default_shapes_path
+    ontology_path = ontology_path or default_ontology_path
+    
+    errors = []
+    
+    # Validate shapes path
+    shapes_file = Path(shapes_path)
+    if not shapes_file.exists():
+        error_msg = (
+            f"SHAML shapes file not found: {shapes_path}\n"
+            f"Expected location: {shapes_file.absolute()}\n"
+            f"Current working directory: {os.getcwd()}"
+        )
+        errors.append(error_msg)
+    
+    # Validate ontology path
+    ontology_file = Path(ontology_path)
+    if not ontology_file.exists():
+        error_msg = (
+            f"Ontology file not found: {ontology_path}\n"
+            f"Expected location: {ontology_file.absolute()}\n"
+            f"Current working directory: {os.getcwd()}"
+        )
+        errors.append(error_msg)
+    
+    if errors:
+        return False, "", "", "\n".join(errors)
+    
+    return True, str(shapes_file.absolute()), str(ontology_file.absolute()), ""
 
-VALID_NETWORKS = ["op-mainnet", "op-sepolia", "eth-mainnet", "eth-sepolia"]
-VALID_CHAIN_IDS = [10, 1, 11155420, 11155111]
-VALID_NETWORK_TYPES = {
-    "op-mainnet": "layer2",
-    "op-sepolia": "layer2-testnet",
-    "eth-mainnet": "layer1",
-    "eth-sepolia": "layer1-testnet"
-}
+
+def get_network_config(network_type: str) -> Dict[str, Any]:
+    """
+    Get network configuration from PadiConfig singleton.
+    
+    Args:
+        network_type: Network type string
+    
+    Returns:
+        Dictionary with network configuration
+    """
+    config = PadiConfig()
+    return config.get_network_config(network_type)
+
+
+def get_valid_networks() -> List[str]:
+    """
+    Get list of valid networks from PadiConfig singleton.
+    
+    Returns:
+        List of valid network type strings
+    """
+    config = PadiConfig()
+    return list(config.networks.keys())
+
+
+def validate_network_type(network_type: str) -> bool:
+    """
+    Validate network type against PadiConfig.
+    
+    Args:
+        network_type: Network type string
+    
+    Returns:
+        True if valid, False otherwise
+    """
+    config = PadiConfig()
+    return network_type in config.networks
+
+
+# =====================================================
+# 🛡️ V1.2 NEW: SHAML VALIDATION WITH PATH VALIDATION
+# =====================================================
+
+def validate_with_shacl(
+    data_graph: Graph,
+    shapes_path: Optional[str] = None,
+    ontology_path: Optional[str] = None,
+    inference: str = 'rdfs',
+    advanced: bool = True,
+    allow_warnings: bool = True
+) -> Tuple[bool, str, str]:
+    """
+    Validate RDF graph with SHAML using path validation.
+    
+    🛡️ V1.2: Prevents "Ghost" Pathing vulnerability by validating
+    file paths before running pySHACL validation.
+    
+    Args:
+        data_graph: RDF graph to validate
+        shapes_path: Path to shapes.ttl file (optional)
+        ontology_path: Path to ontology.ttl file (optional)
+        inference: SHAML inference engine ('rdfs', 'none', etc.)
+        advanced: Enable advanced SHAML features
+        allow_warnings: Allow warnings in validation results
+    
+    Returns:
+        conforms (bool): Whether graph conforms to SHAML constraints
+        results_text (str): SHAML validation results text
+        error_message (str): Error message if path validation fails
+    """
+    # 🛡️ V1.2: Validate paths before running SHAML
+    paths_valid, validated_shapes_path, validated_ontology_path, error_message = validate_shacl_paths(
+        shapes_path,
+        ontology_path
+    )
+    
+    if not paths_valid:
+        # Return error without running validation
+        return False, "", f"Path validation failed:\n{error_message}"
+    
+    try:
+        # Run SHAML validation with validated paths
+        conforms, _, results_text = validate(
+            data_graph,
+            shacl_graph=validated_shapes_path,
+            ont_graph=validated_ontology_path,
+            inference=inference,
+            advanced=advanced,
+            allow_warnings=allow_warnings
+        )
+        
+        return conforms, results_text, ""
+    
+    except Exception as e:
+        error_msg = f"SHAML validation error: {str(e)}"
+        return False, "", error_msg
 
 
 def audit_signal(
@@ -39,15 +188,15 @@ def audit_signal(
     target_address: str,
     action_type: str,
     signal_id: str,
-    # NEW: Network Context Parameters
+    # Network Context Parameters
     network_type: str = "op-mainnet",
     chain_id: Optional[int] = None,
     source_provider: Optional[str] = None,
-    # NEW: Verification Metadata Parameters
+    # Verification Metadata Parameters
     verification_confidence: Optional[List[float]] = None,
     verification_timestamp: Optional[List[str]] = None,
     verification_match: Optional[List[bool]] = None,
-    # NEW: Cross-Network Verification Parameters
+    # Cross-Network Verification Parameters
     primary_network: Optional[str] = None,
     fallback_network: Optional[str] = None,
     cross_network_verification: Optional[bool] = True,
@@ -55,27 +204,35 @@ def audit_signal(
     observed_at: Optional[str] = None,
     block_number: Optional[int] = None,
     gas_price_gwei: Optional[float] = None,
-    is_validated: bool = False
+    is_validated: bool = False,
+    # SHAML Configuration Parameters
+    enforce_1003: bool = True,
+    shapes_path: Optional[str] = None,
+    ontology_path: Optional[str] = None,
+    # SHAML Validation Options
+    inference: str = 'rdfs',
+    advanced: bool = True,
+    allow_warnings: bool = True
 ) -> Tuple[Graph, bool, str, str]:
     """
     PADI Bureau Core Audit:
-    Converts a signal into RDF and enforces the 1003 Rule via SHACL.
+    Converts a signal into RDF and enforces the 1003 Rule via SHAML.
     
-    Enhanced with multi-network support (OP Mainnet vs Ethereum Mainnet).
+    🛡️ V1.2: Added path validation to prevent "Ghost" Pathing vulnerability.
     
     Args:
         name: Signal name (used as RDF node identifier)
         confidence: Confidence score (0.0 - 1.0). Must be 1.0 for 1003 Rule.
-        sources: List of exactly 3 verification sources (strings)
+        sources: List of verification sources (enforced via SHAML)
         target_address: Contract or wallet address targeted by this signal
         action_type: Action type (e.g., SWAP, ARB, AUDIT)
         signal_id: Unique deterministic identifier (e.g., SHA256 hash)
         network_type: Network type ("op-mainnet", "op-sepolia", "eth-mainnet", "eth-sepolia")
         chain_id: EVM chain ID (10 for OP Mainnet, 1 for ETH Mainnet)
         source_provider: API provider that supplied the signal
-        verification_confidence: List of 3 confidence scores (0.0 - 1.0 each)
-        verification_timestamp: List of 3 ISO timestamps for each verification source
-        verification_match: List of 3 boolean match statuses
+        verification_confidence: List of confidence scores (0.0 - 1.0 each)
+        verification_timestamp: List of ISO timestamps for each verification source
+        verification_match: List of boolean match statuses
         primary_network: Primary network where signal was first observed
         fallback_network: Fallback network used for verification (optional)
         cross_network_verification: Whether signal was verified across networks
@@ -83,27 +240,46 @@ def audit_signal(
         block_number: Blockchain block number where the signal was observed
         gas_price_gwei: Gas price at time of observation in Gwei
         is_validated: Indicates whether the signal passed validation (default False)
+        enforce_1003: Whether to enforce 1003 rule via SHACL validation (default True)
+        shapes_path: Path to SHAML shapes.ttl file (optional)
+        ontology_path: Path to ontology.ttl file (optional)
+        inference: SHAML inference engine ('rdfs', 'none', etc.)
+        advanced: Enable advanced SHAML features
+        allow_warnings: Allow warnings in validation results
     
     Returns:
         g (Graph) - RDF Graph of the signal
-        conforms (bool) - SHACL conformance
+        conforms (bool) - SHAML conformance
         status (str) - Deterministic or Probabilistic status
-        results_text (str) - SHACL validation report
+        results_text (str) - SHAML validation report
     """
+    # Load PadiConfig for network validation
+    config = PadiConfig()
+    
     # --- INPUT VALIDATION ---
-    # Validate network_type
-    if network_type not in VALID_NETWORKS:
-        raise ValueError(f"Invalid network_type: {network_type}. Must be one of {VALID_NETWORKS}")
+    # Validate network_type against PadiConfig
+    if not validate_network_type(network_type):
+        valid_networks = get_valid_networks()
+        raise ValueError(
+            f"Invalid network_type: {network_type}. "
+            f"Must be one of {valid_networks}"
+        )
+    
+    # Load network configuration
+    network_config = get_network_config(network_type)
     
     # Auto-detect chain_id if not provided
     if chain_id is None:
-        chain_id = NETWORK_CHAIN_ID_MAP[network_type]
-    elif chain_id not in VALID_CHAIN_IDS:
-        raise ValueError(f"Invalid chain_id: {chain_id}. Must be one of {VALID_CHAIN_IDS}")
+        chain_id = network_config["chain_id"]
+    elif chain_id != network_config["chain_id"]:
+        raise ValueError(
+            f"Chain ID mismatch: network_type={network_type} "
+            f"expects chain_id={network_config['chain_id']}, got {chain_id}"
+        )
     
     # Auto-detect source_provider if not provided
     if source_provider is None:
-        source_provider = NETWORK_PROVIDER_MAP[network_type]
+        source_provider = network_config.get("provider", network_config["name"])
     
     # Auto-detect primary_network if not provided
     if primary_network is None:
@@ -134,27 +310,28 @@ def audit_signal(
     observed_at = observed_at or datetime.utcnow().isoformat()
     g.add((node, EX.observedAt, Literal(observed_at, datatype=XSD.dateTime)))
 
-    # 5. NETWORK CONTEXT (NEW)
+    # 5. NETWORK CONTEXT
     g.add((node, EX.hasNetworkType, Literal(network_type, datatype=XSD.string)))
     g.add((node, EX.hasChainID, Literal(chain_id, datatype=XSD.integer)))
     g.add((node, EX.hasSourceProvider, Literal(source_provider, datatype=XSD.string)))
 
-    # 6. VERIFICATION METADATA (NEW)
+    # 6. VERIFICATION METADATA
     if verification_confidence is not None:
         for vc in verification_confidence:
             g.add((node, EX.hasVerificationConfidence, Literal(vc, datatype=XSD.decimal)))
     else:
-        # Default to 1.0 for all sources if not provided
-        for _ in range(3):
+        # Default to 1.0 for default sources if not provided
+        default_sources = get_network_config(network_type).get("rpc_url", "Unknown")
+        for _ in range(len(sources)):
             g.add((node, EX.hasVerificationConfidence, Literal(1.0, datatype=XSD.decimal)))
     
     if verification_timestamp is not None:
         for vt in verification_timestamp:
             g.add((node, EX.hasVerificationTimestamp, Literal(vt, datatype=XSD.dateTime)))
     else:
-        # Default to current timestamp for all sources if not provided
+        # Default to current timestamp for default sources if not provided
         current_ts = datetime.utcnow().isoformat()
-        for _ in range(3):
+        for _ in range(len(sources)):
             g.add((node, EX.hasVerificationTimestamp, Literal(current_ts, datatype=XSD.dateTime)))
     
     if verification_match is not None:
@@ -162,10 +339,10 @@ def audit_signal(
             g.add((node, EX.hasVerificationMatch, Literal(vm, datatype=XSD.boolean)))
     else:
         # Default to match for all sources if not provided
-        for _ in range(3):
+        for _ in range(len(sources)):
             g.add((node, EX.hasVerificationMatch, Literal(True, datatype=XSD.boolean)))
 
-    # 7. CROSS-NETWORK VERIFICATION (NEW)
+    # 7. CROSS-NETWORK VERIFICATION
     g.add((node, EX.hasPrimaryNetwork, Literal(primary_network, datatype=XSD.string)))
     
     if fallback_network is not None:
@@ -180,15 +357,26 @@ def audit_signal(
         g.add((node, EX.hasGasPriceGwei, Literal(gas_price_gwei, datatype=XSD.decimal)))
     g.add((node, EX.isValidated, Literal(is_validated, datatype=XSD.boolean)))
 
-    # 9. SHACL VALIDATION
-    conforms, _, results_text = validate(
-        g,
-        shacl_graph="schema/shapes.ttl",
-        ont_graph="schema/ontology.ttl",
-        inference='rdfs',
-        advanced=True,
-        allow_warnings=True
-    )
+    # 9. SHAML VALIDATION WITH PATH VALIDATION
+    # 🛡️ V1.2: Use validate_with_shacl() with path validation
+    if enforce_1003:
+        conforms, results_text, error_message = validate_with_shacl(
+            g,
+            shapes_path=shapes_path,
+            ontology_path=ontology_path,
+            inference=inference,
+            advanced=advanced,
+            allow_warnings=allow_warnings
+        )
+        
+        if error_message:
+            # Return error without promoting to ExecutableFact
+            status = f"❌ PROBABILISTIC (BLOCKED - Path/Validation Error): {error_message}"
+            return g, False, status, error_message
+    else:
+        # Skip SHAML validation (for testing or override)
+        conforms = True
+        results_text = "SHML validation bypassed (enforce_1003=False)"
 
     # 10. DETERMINISTIC PROMOTION
     if conforms:
@@ -204,12 +392,16 @@ def audit_signal(
     return g, conforms, status, results_text
 
 
+# =====================================================
+# HELPER FUNCTIONS (Unchanged)
+# =====================================================
+
 def create_verification_metadata(
     source_name: str,
     confidence: float,
     timestamp: Optional[str] = None,
     match: bool = True
-) -> Dict[str, any]:
+) -> Dict[str, Any]:
     """
     Creates a structured verification metadata object.
     
@@ -268,9 +460,10 @@ def validate_verification_metadata(
     return True, ""
 
 
-def get_network_info(network_type: str) -> Dict[str, any]:
+def get_network_info(network_type: str) -> Dict[str, Any]:
     """
     Retrieves network information for a given network type.
+    ✅ v1.2: Uses PadiConfig singleton.
     
     Args:
         network_type: Network type ("op-mainnet", "op-sepolia", "eth-mainnet", "eth-sepolia")
@@ -278,20 +471,22 @@ def get_network_info(network_type: str) -> Dict[str, any]:
     Returns:
         Dictionary with chain ID, provider, and network class
     """
-    if network_type not in VALID_NETWORKS:
-        raise ValueError(f"Invalid network_type: {network_type}. Must be one of {VALID_NETWORKS}")
+    config = PadiConfig()
+    network_config = get_network_config(network_type)
     
     return {
         "network_type": network_type,
-        "chain_id": NETWORK_CHAIN_ID_MAP[network_type],
-        "default_provider": NETWORK_PROVIDER_MAP[network_type],
-        "network_class": VALID_NETWORK_TYPES[network_type]
+        "chain_id": network_config["chain_id"],
+        "default_provider": network_config.get("provider", network_config["name"]),
+        "rpc_url": network_config["rpc_url"],
+        "network_class": network_config.get("network_class", "layer2")
     }
 
 
 def validate_network_config(network_type: str, chain_id: Optional[int] = None) -> Tuple[bool, str]:
     """
     Validates network configuration.
+    ✅ v1.2: Uses PadiConfig singleton.
     
     Args:
         network_type: Network type
@@ -301,11 +496,15 @@ def validate_network_config(network_type: str, chain_id: Optional[int] = None) -
         is_valid (bool): Whether configuration is valid
         error_message (str): Error message if invalid, empty string otherwise
     """
-    if network_type not in VALID_NETWORKS:
-        return False, f"Invalid network_type: {network_type}. Must be one of {VALID_NETWORKS}"
+    config = PadiConfig()
+    
+    if not validate_network_type(network_type):
+        valid_networks = get_valid_networks()
+        return False, f"Invalid network_type: {network_type}. Must be one of {valid_networks}"
     
     if chain_id is not None:
-        expected_chain_id = NETWORK_CHAIN_ID_MAP[network_type]
+        network_config = get_network_config(network_type)
+        expected_chain_id = network_config["chain_id"]
         if chain_id != expected_chain_id:
             return False, f"Chain ID mismatch: network_type={network_type} expects chain_id={expected_chain_id}, got {chain_id}"
     
@@ -314,8 +513,25 @@ def validate_network_config(network_type: str, chain_id: Optional[int] = None) -
 
 # --- PRODUCTION TEST GATEWAY ---
 if __name__ == "__main__":
-    print("--- PADI BUREAU: NAIROBI NODE-01 STANDALONE AUDIT ---")
+    # Initialize PadiConfig singleton
+    PadiConfig()
+    
+    print("--- PADI BUREAU: NAIROBI NODE-01 STANDALONE AUDIT v1.2 ---")
     print()
+
+    # 🛡️ V1.2: Test path validation
+    print("🛡️ Testing SHAML Path Validation...")
+    print("-" * 50)
+    paths_valid, shapes_path, ontology_path, error_msg = validate_shacl_paths()
+    if paths_valid:
+        print(f"✅ SHAML paths validated:")
+        print(f"   Shapes: {shapes_path}")
+        print(f"   Ontology: {ontology_path}")
+        print()
+    else:
+        print(f"❌ SHAML path validation failed:")
+        print(f"   {error_msg}")
+        print()
 
     # Example 1: Probabilistic Signal (Should fail)
     # Missing verification metadata, incomplete 1003 Rule
@@ -369,28 +585,12 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error: {e}\n")
 
-    # Example 3: Deterministic Signal on Ethereum Mainnet (Should pass)
-    print("Example 3: Deterministic Signal on Ethereum Mainnet (Should PASS)")
+    # Example 3: Test with custom SHAML paths (optional)
+    print("Example 3: Test with Custom SHAML Paths (Optional)")
     print("-" * 50)
-    try:
-        g3, c3, s3, r3 = audit_signal(
-            name="Truth_Lead_ETH",
-            confidence=1.0,
-            sources=["Alchemy-ETH-Mainnet", "Infura-ETH-Mainnet", "QuickNode-ETH-Mainnet"],
-            target_address="0xFEDCBA0987654321",
-            action_type="AUDIT",
-            signal_id="TRUTH-ETH-001",
-            network_type="eth-mainnet",
-            chain_id=1,
-            source_provider="Alchemy-ETH-Mainnet",
-            block_number=12345680,
-            gas_price_gwei=60.0
-        )
-        print(f"Signal: Truth_Lead_ETH | Status: {s3}")
-        print(f"Network: eth-mainnet (Chain ID: 1)")
-        print(f"Provider: Alchemy-ETH-Mainnet\n")
-    except Exception as e:
-        print(f"Error: {e}\n")
+    print("Note: This example demonstrates optional custom path handling.")
+    print("If custom paths are not provided, defaults from PadiConfig are used.")
+    print()
 
     # Example 4: Helper Functions Demo
     print("Example 4: Helper Functions Demo")
@@ -400,16 +600,8 @@ if __name__ == "__main__":
     print(f"  - Type: {info['network_type']}")
     print(f"  - Chain ID: {info['chain_id']}")
     print(f"  - Default Provider: {info['default_provider']}")
+    print(f"  - RPC URL: {info['rpc_url']}")
     print(f"  - Network Class: {info['network_class']}")
     print()
 
-    # Validate network config
-    print("Network Config Validation:")
-    is_valid, msg = validate_network_config("op-mainnet", 10)
-    print(f"  - op-mainnet + chain_id=10: {is_valid} | {msg or 'Valid'}")
-    
-    is_valid, msg = validate_network_config("op-mainnet", 1)
-    print(f"  - op-mainnet + chain_id=1: {is_valid} | {msg or 'Valid'}")
-    print()
-
-    print("--- AUDIT COMPLETE ---")
+    print("--- AUDIT COMPLETE v1.2 ---")
