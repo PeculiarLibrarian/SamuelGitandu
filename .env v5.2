@@ -1,6 +1,16 @@
 # =====================================================
 # 🏛️ PADI SOVEREIGN BUREAU — NAIROBI NODE-01
 # Multi-Network Configuration
+# Version: 5.2
+# DOI Anchor: 10.5281/zenodo.18894084
+# 
+# V5.2 OPTIMIZATIONS:
+# - ✅ Schema Bootstrapping Configuration
+# - ✅ BASE_DIR-Independent Path Resolution
+# - ✅ Fail-Fast Mode Configuration
+# - ✅ Auto-Generation Toggle
+# - ✅ Polling Interval Configuration
+# - ✅ Complete PADI v5.2 Alignment
 # =====================================================
 
 # ---------------------------
@@ -8,6 +18,8 @@
 # ---------------------------
 PADI_NODE_ID=NAIROBI-01
 LOG_LEVEL=INFO
+ENVIRONMENT=production
+TZ=Africa/Nairobi
 
 # ---------------------------
 # WALLET CONFIGURATION
@@ -21,20 +33,25 @@ PADI_PRIVATE_KEY=YourPrivateKey
 
 # OP Mainnet (Required for OP Mainnet operations)
 OP_MAINNET_RPC_URL=https://opt-mainnet.g.alchemy.com/v2/YOUR_ALCHEMY_API_KEY
+OP_MAINNET_RPC_BACKUP_URL=
 
 # OP Sepolia Testnet (Optional, for testing)
 OP_SEPOLIA_RPC_URL=https://opt-sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_API_KEY
+OP_SEPOLIA_RPC_BACKUP_URL=
 
 # Ethereum Mainnet (Required for ETH Mainnet operations)
 ETH_MAINNET_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_ALCHEMY_API_KEY
+ETH_MAINNET_RPC_BACKUP_URL=
 
 # Ethereum Sepolia Testnet (Optional, for testing)
 ETH_SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_API_KEY
+ETH_SEPOLIA_RPC_BACKUP_URL=
 
 # ---------------------------
 # LEGACY BASE L2 CONFIGURATION (OPTIONAL)
 # ---------------------------
 BASE_L2_RPC_URL=https://base-mainnet.g.alchemy.com/v2/YOUR_ALCHEMY_API_KEY
+BASE_L2_RPC_BACKUP_URL=
 CHAIN_ID=8453
 
 # ---------------------------
@@ -49,6 +66,7 @@ FALLBACK_NETWORK_ORDER=op-mainnet,eth-mainnet,op-sepolia,eth-sepolia
 # ---------------------------
 REQUIRED_CONFIDENCE=1.0
 REQUIRED_VERIFICATION_SOURCES=3
+ENFORCE_1003_RULE=true
 
 # ---------------------------
 # EXECUTION CONFIGURATION
@@ -56,11 +74,38 @@ REQUIRED_VERIFICATION_SOURCES=3
 GAS_LIMIT=250000
 TX_TIMEOUT=300
 DEFAULT_GAS_PRICE=
-POLLING_INTERVAL=5
+# 🛡️ v5.1 NEW: Main loop polling interval
+PADI_POLLING_INTERVAL=5
 
 # ---------------------------
-# SCHEMA CONFIGURATION
+# 🛡️ v5.2 NEW: SCHEMA BOOTSTRAPPING CONFIGURATION
 # ---------------------------
+
+# Schema directory (absolute path or relative to project root)
+PADI_SCHEMA_DIR=schema
+
+# SHAML shapes file path (absolute path or relative to project root)
+PADI_SHAPES_PATH=schema/shapes.ttl
+
+# Ontology file path (absolute path or relative to project root)
+PADI_ONTOLOGY_PATH=schema/ontology.ttl
+
+# Auto-generation toggle (true/false)
+# When true, missing schema files will be generated automatically
+# When false, missing schema files will be logged as warnings
+PADI_SCHEMA_AUTO_GENERATE=true
+
+# Fail-fast mode (true/false)
+# When true, the system will refuse to boot if required schema files are missing
+# When false, missing schema files will be logged as warnings
+# 🛡️ v5.2: Enforces Sovereign compliance when enabled
+PADI_REQUIRE_ALL_SCHEMA_FILES=false
+
+# ---------------------------
+# SCHEMA CONFIGURATION (LEGACY - KEPT FOR BACKWARD COMPATIBILITY)
+# ---------------------------
+# These are mapped to PADI_* variables in padi_config.py
+# Use PADI_* variables above for v5.2 features
 ONTology_FILE=schema/ontology.ttl
 SHAPES_FILE=schema/shapes.ttl
 RULES_FILE=schema/rules.ttl
