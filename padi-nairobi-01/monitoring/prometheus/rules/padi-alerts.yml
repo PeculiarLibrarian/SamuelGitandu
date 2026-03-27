@@ -1,8 +1,8 @@
 # =====================================================
-# Prometheus Alert Rules — PADI Nairobi-01 PROD v2.1.1
+# Prometheus Alert Rules — PADI Nairobi-01 PROD v2.1.2
 # =====================================================
 #
-# Sovereign Perfection — Production Observatory v2.1.1
+# Sovereign Perfection — Production Observatory v2.1.2
 # Nairobi Node-01 — PADI Sovereign Bureau
 #
 # ALERT RULES DEFINITIONS:
@@ -79,7 +79,7 @@ groups:
           summary: 'Geth Node Unreachable'
           description: 'Geth blockchain node at 10.10.0.20:6060 is not responding'
           impact: 'Blockchain operations unavailable'
-          action: 'Verify Geth service: docker logs geth'
+          action: 'Verify Geth service: docker logs geth --tail 100'
 
       # =====================================================
       # EXECUTOR SERVICE ALERTS
