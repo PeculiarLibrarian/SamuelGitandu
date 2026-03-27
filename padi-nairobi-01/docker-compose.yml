@@ -1,153 +1,72 @@
   # =====================================================
-  # Geth Node (Ethereum Mainnet) — AUDIT REFINEMENT ADDED
+  # Alertmanager (Alert Routing) — AUDIT REFINEMENT: ENV INTERPOLATION
   # =====================================================
-  geth_mainnet:
-    image: ethereum/client-go:v1.13.11
-    container_name: padi_geth_mainnet_nairobi_01
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: padi_alertmanager_nairobi_01
     restart: unless-stopped
     networks:
       padi_network:
-        ipv4_address: 172.28.0.70
+        ipv4_address: 172.28.0.40
     volumes:
-      - ./data/geth_mainnet:/root/.ethereum
-      - ./data/geth_mainnet_keystore:/root/keystore
+      # Alertmanager config template (with ${VAR} placeholders)
+      - ./alertmanager_config.yml:/etc/alertmanager/config.yml.tpl:ro
+      - ./alertmanager_templates:/etc/alertmanager/templates:ro
+      - alertmanager_data:/alertmanager
     ports:
-      - "8545:8545"  # RPC
-      - "30303:30303"  # P2P listening
-      - "30303:30303/udp"  # P2P discv5
+      - "9093:9093"  # Alertmanager Web UI
     environment:
-      - GETH_DATA_DIR=/root/.ethereum
-      - P2P_DISCOVERY=true
-    command: >
-      geth
-      --mainnet
-      --datadir=/root/.ethereum
-      --http
-      --http.addr=0.0.0.0
-      --http.port=8545
-      --http.corsdomain=*
-      --http.api=eth,net,web3,txpool
-      --ws
-      --ws.addr=0.0.0.0
-      --ws.port=8546
-      --ws.origins=*
-      --ws.api=eth,net,web3,txpool
-      --metrics
-      --metrics.addr=0.0.0.0
-      --metrics.port=6060
-      --metrics.influxdb=false
-      --bootnodes=enode://d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4100430333f346b04576b0721743b6bd1bd613cf8b54b31f762c2464521b3db81790c5d3a0@54.194.0.247:30303?discport=30303,enode://6c2750d6b29a0b8339e3a3bd7183f9a48b1e544595922748d3a68d3d4a812e8abac60e0e4df8b8750fa9cd0e988e5b4f5aeb4b90c1e7e48e3f573f1b6f77c4@34.220.177.75:30303?discport=30303
+      # Email configuration
+      - SMTP_SMARTHOST=${SMTP_SMARTHOST:-smtp.gmail.com:587}
+      - SMTP_FROM=${SMTP_FROM:-prometheus@padi-nairobi-01}
+      - SMTP_AUTH_USERNAME=${SMTP_AUTH_USERNAME:-your-email@gmail.com}
+      - SMTP_AUTH_PASSWORD=${SMTP_AUTH_PASSWORD:-your-app-password}
+      
+      # Slack configuration
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - SLACK_ALERT_CHANNEL=${SLACK_ALERT_CHANNEL:-#padi-alerts}
+      - SLACK_CRITICAL_CHANNEL=${SLACK_CRITICAL_CHANNEL:-#padi-critical}
+      - SLACK_OPS_CHANNEL=${SLACK_OPS_CHANNEL:-#padi-ops}
+      - SLACK_DEVOPS_CHANNEL=${SLACK_DEVOPS_CHANNEL:-#padi-devops}
+      - SLACK_REPORTS_CHANNEL=${SLACK_REPORTS_CHANNEL:-#padi-reports}
+      
+      # Email recipients
+      - EMAIL_CRITICAL=${EMAIL_CRITICAL:-cto@padi-nairobi-01}
+      - EMAIL_WARNING=${EMAIL_WARNING:-oncall@padi-nairobi-01}
+      - EMAIL_INFO=${EMAIL_INFO:-digest@padi-nairobi-01}
+      - EMAIL_EXECUTOR=${EMAIL_EXECUTOR:-nairobi-ops@padi-nairobi-01}
+      - EMAIL_INFRA=${EMAIL_INFRA:-devops@padi-nairobi-01}
+      
+      # Webhook configuration
+      - WEBHOOK_ALERT_URL=${WEBHOOK_ALERT_URL:-http://localhost:5000/webhook/alerts}
+      - WEBHOOK_CRITICAL_URL=${WEBHOOK_CRITICAL_URL:-http://localhost:5000/webhook/critical}
+      
+      # Alert timing
+      - ALERT_REPEAT_INTERVAL_CRITICAL=${ALERT_REPEAT_INTERVAL_CRITICAL:-15m}
+      - ALERT_REPEAT_INTERVAL_WARNING=${ALERT_REPEAT_INTERVAL_WARNING:-2h}
+      - ALERT_REPEAT_INTERVAL_INFO=${ALERT_REPEAT_INTERVAL_INFO:24h}
+    # CUSTOM ENTRYPOINT: Preprocess config with envsubst before starting
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        # Preprocess config with env substitution
+        envsubst < /etc/alertmanager/config.yml.tpl > /etc/alertmanager/config.yml
+        # Validate the processed config
+        /bin/amtool config check /etc/alertmanager/config.yml || exit 1
+        # Start Alertmanager with the processed config
+        /bin/alertmanager --config.file=/etc/alertmanager/config.yml "$@"
+    command:
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+      - '--log.level=info'
     healthcheck:
-      test: ["CMD", "geth", "attach", "--exec", "eth.blockNumber", "http://localhost:8545"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9093/-/healthy"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # =====================================================
-  # Geth Node (Polygon PoS) — AUDIT REFINEMENT ADDED
-  # =====================================================
-  geth_polygon:
-    image: polygonpolygon/client:v1.6.2
-    container_name: padi_geth_polygon_nairobi_01
-    restart: unless-stopped
-    networks:
-      padi_network:
-        ipv4_address: 172.28.0.71
-    volumes:
-      - ./data/geth_polygon:/root/.ethereum
-      - ./data/geth_polygon_keystore:/root/keystore
-    ports:
-      - "8550:8545"  # RPC
-      - "8551:8546"  # WS
-      - "30304:30303"  # P2P listening
-    environment:
-      - GETH_DATA_DIR=/root/.ethereum
-      - P2P_DISCOVERY=true
-    command: >
-      geth
-      --po
-      --datadir=/root/.ethereum
-      --http
-      --http.addr=0.0.0.0
-      --http.port=8545
-      --http.corsdomain=*
-      --http.api=eth,net,web3,txpool,personal,admin
-      --ws
-      --ws.addr=0.0.0.0
-      --ws.port=8546
-      --ws.origins=*
-      --ws.api=eth,net,web3,txpool
-      --metrics
-      --metrics.addr=0.0.0.0
-      --metrics.port=6061
-      --metrics.influxdb=false
-      --rpc.allow-unprotected-txs
-      --syncmode=snap
-    healthcheck:
-      test: ["CMD", "geth", "attach", "--exec", "eth.blockNumber", "http://localhost:8545"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # =====================================================
-  # Geth Node (Base) — AUDIT REFINEMENT ADDED
-  # =====================================================
-  geth_base:
-    image: basetal/op-geth:v1.10.22
-    container_name: padi_geth_base_nairobi_01
-    restart: unless-stopped
-    networks:
-      padi_network:
-        ipv4_address: 172.28.0.72
-    volumes:
-      - ./data/geth_base:/root/.ethereum
-      - ./data/geth_base_keystore:/root/keystore
-    ports:
-      - "8552:8545"  # RPC
-      - "8553:8546"  # WS
-      - "30305:30303"  # P2P listening
-    environment:
-      - GETH_DATA_DIR=/root/.ethereum
-      - P2P_DISCOVERY=true
-    command: >
-      geth
-      --datadir=/root/.ethereum
-      --networkid=8453
-      --http
-      --http.addr=0.0.0.0
-      --http.port=8545
-      --http.corsdomain=*
-      --http.api=eth,net,web3,txpool,optimism
-      --ws
-      --ws.addr=0.0.0.0
-      --ws.port=8546
-      --ws.origins=*
-      --ws.api=eth,net,web3,txpool,optimism
-      --metrics
-      --metrics.addr=0.0.0.0
-      --metrics.port=6062
-      --rollup.sequencerhttp=https://sequencer.base.org
-      --syncmode=full
-      --rpc.gascap=0
-      --rpc.evmtimeout=0s
-    healthcheck:
-      test: ["CMD", "geth", "attach", "--exec", "eth.blockNumber", "http://localhost:8545"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+    depends_on:
+      - prometheus
     logging:
       driver: "json-file"
       options:
