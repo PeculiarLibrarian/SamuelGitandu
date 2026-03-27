@@ -1,0 +1,38 @@
+# =====================================================
+# Grafana Datasource Configuration — PADI Nairobi-01 PROD v2.1
+# =====================================================
+#
+# Sovereign Perfection — Production Observatory v2.1
+# Nairobi Node-01 — PADI Sovereign Bureau
+#
+# PURPOSE: Grafana-Prometheus Integration
+# FEATURES:
+#   ✅ Prometheus datasource configuration
+#   ✅ HTTP POST method for query performance
+#   ✅ 15-second time interval for near real-time metrics
+#   ✅ Default datasource assignment
+#   ✅ Internal Docker bridge networking
+#
+# SECURITY NOTE:
+#   No credentials required — Prometheus is within Docker bridge
+#   URL resolves via Docker container name (prometheus:9090)
+#
+# Version: 2.1-PROD
+# Node: Nairobi-01
+# Environment: Production
+# =====================================================
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      timeInterval: "15s"
+    # 🔒 Security: Internal network resolution
+    # No credentials required as it's within the Docker bridge
