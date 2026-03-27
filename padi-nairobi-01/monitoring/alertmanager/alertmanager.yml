@@ -1,0 +1,111 @@
+# =====================================================
+# Alertmanager Configuration — PADI Nairobi-01 PROD v2.1
+# =====================================================
+#
+# Sovereign Perfection — Production Observatory v2.1
+# Nairobi Node-01 — PADI Sovereign Bureau
+#
+# Version: 2.1-PROD
+# Node: Nairobi-01
+# Environment: Production
+# =====================================================
+
+global:
+  # SMTP Configuration for SendGrid (Credentials from .env)
+  smtp_smarthost: 'smtp.sendgrid.net:587'
+  smtp_from: 'nairobi-01@padisovereign.bureau'
+  smtp_auth_username: 'apikey'
+  smtp_auth_password: '${SENDGRID_API_KEY}'
+  smtp_require_tls: true
+
+  # Time allowed for an alert to be considered resolved
+  resolve_timeout: '5m'
+
+# =====================================================
+# ROUTING TREE
+# =====================================================
+route:
+  # Base receiver for anything not caught by specific routes
+  receiver: 'padi-nairobi-01-primary'
+  
+  # Grouping alerts by name and service to prevent spam
+  group_by: ['alertname', 'service', 'category']
+  group_wait: '30s'
+  group_interval: '5m'
+  repeat_interval: '4h'
+  
+  routes:
+    # 1. WATCHDOG: Heartbeat to Healthchecks.io
+    - match:
+        alertname: Watchdog
+      receiver: 'padi-nairobi-01-heartbeat'
+      group_wait: 0s
+      repeat_interval: 1m
+
+    # 2. CRITICAL: High-priority escalation
+    - match:
+        severity: 'critical'
+      receiver: 'padi-nairobi-01-critical'
+      continue: false
+
+    # 3. WARNING: Standard operational alerts
+    - match:
+        severity: 'warning'
+      receiver: 'padi-nairobi-01-warning'
+      continue: false
+
+    # 4. INFO: General system telemetry
+    - match:
+        severity: 'info'
+      receiver: 'padi-nairobi-01-info'
+      continue: false
+
+# =====================================================
+# RECEIVERS
+# =====================================================
+receivers:
+  # Primary / Fallback Email
+  - name: 'padi-nairobi-01-primary'
+    email_configs:
+      - to: 'peculiarlibrarian@gmail.com'
+        from: 'nairobi-01@padisovereign.bureau'
+        headers:
+          Subject: '🏛️ PADI ALERT — {{ .GroupLabels.alertname }} — Nairobi-01'
+        html: '{{ template "email.padi.html" . }}'
+
+  # Critical Severity
+  - name: 'padi-nairobi-01-critical'
+    email_configs:
+      - to: 'peculiarlibrarian@gmail.com'
+        headers:
+          Subject: '🚨 CRITICAL — PADI ALERT — {{ .GroupLabels.alertname }}'
+          X-PADI-Priority: 'urgent'
+        html: '{{ template "email.padi.html" . }}'
+
+  # Warning Severity
+  - name: 'padi-nairobi-01-warning'
+    email_configs:
+      - to: 'peculiarlibrarian@gmail.com'
+        headers:
+          Subject: '⚠️ WARNING — PADI ALERT — {{ .GroupLabels.alertname }}'
+        html: '{{ template "email.padi.html" . }}'
+
+  # Info Severity
+  - name: 'padi-nairobi-01-info'
+    email_configs:
+      - to: 'peculiarlibrarian@gmail.com'
+        headers:
+          Subject: 'ℹ️ INFO — PADI ALERT — {{ .GroupLabels.alertname }}'
+        html: '{{ template "email.padi.html" . }}'
+
+  # External Heartbeat Webhook
+  - name: 'padi-nairobi-01-heartbeat'
+    webhook_configs:
+      - url: '${WATCHDOG_URL}'
+        send_resolved: true
+
+# =====================================================
+# TEMPLATES
+# =====================================================
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
