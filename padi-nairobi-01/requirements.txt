@@ -1,24 +1,52 @@
 # =====================================================
-# PADI EXECUTOR v5.3 — Dependencies
+# PADI EXECUTOR v5.3 — Python Dependencies (AUDIT CLEANED)
 # =====================================================
+#
+# Core Ethereum dependencies
+web3>=6.11.0
+eth-account>=0.10.0
 
-# Core Web3
-web3>=6.0.0
+# Security and cryptography
+pycryptodome>=3.19.0
+cryptography>=41.0.0
 
-# RDF Processing
+# Logging and monitoring
+prometheus-client>=0.19.0
+python-json-logger>=2.0.7
+
+# Async support (modern async client)
+httpx>=0.25.0
+
+# Data processing
+pandas>=2.1.0
+numpy>=1.25.0
+
+# RDF serialization
 rdflib>=7.0.0
+pyrdflib>=6.0.0
 
-# Type Hints (Python < 3.9)
-typing-extensions>=4.0.0
-
-# Logging Enhancements
-colorlog>=6.0.0
-
-# JSON Serialization
-orjson>=3.9.0
-
-# Optional: Async Support
-aiohttp>=3.9.0
-
-# Optional: Environment Variable Management
+# Configuration management
 python-dotenv>=1.0.0
+pyyaml>=6.0.0
+
+# Time utilities
+python-dateutil>=2.8.2
+pytz>=2023.3
+
+# Testing (development dependencies)
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+
+# Code quality
+black>=23.9.0
+flake8>=6.1.0
+mypy>=1.6.0
+
+# Type stubs
+types-requests>=2.31.0
+types-pyyaml>=6.0.0
+
+# Development tools
+ipython>=8.16.0
+jupyter>=1.0.0
