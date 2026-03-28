@@ -1,12 +1,3 @@
-**🏛️ PADI SOVEREIGN BUREAU — CONSOLIDATED ALERT RULES GENERATION**
-
-**Nairobi-01 Node — Complete v3.0 Alert Rules (Single File)**
-
----
-
-## 📄 Complete File: `monitoring/prometheus/alerts/alert-rules.yml`
-
-```yaml
 # =====================================================
 # Prometheus Alert Rules — PADI Nairobi-01 PROD v3.0
 # =====================================================
