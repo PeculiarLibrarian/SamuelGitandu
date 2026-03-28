@@ -1,81 +1,136 @@
 # =====================================================
-# Prometheus Configuration — PADI Nairobi-01 PROD v2.1.1
+# Prometheus Configuration — PADI Nairobi-01 PROD v3.0
 # =====================================================
-# Sovereign Perfection — Final Production Build
+#
+# Sovereign Perfection — Production Observatory v3.0
+# Nairobi Node-01 — PADI Sovereign Bureau
+#
+# IMPROVEMENTS EMBEDDED:
+#   ✅ DNS Consistency: Switched 'localhost' to 'prometheus' for container networking.
+#   ✅ Storage Sync: Aligned TSDB retention with Docker Compose flags.
+#   ✅ Label Precision: Fixed job name mapping for Alert Rules compatibility.
+#   ✅ Alchemy Readiness: Configured Executor to act as the RPC bridge.
+#   ✅ Alchemy Integration: Added RPC metric exporter for endpoint monitoring.
+#
+# Version: 3.0-PROD (Alchemy Integration)
+# Node: Nairobi-01
+# Environment: Production
+# File: monitoring/prometheus/prometheus.yml
 # =====================================================
 
 global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
-  
+  scrape_interval: 15s     # PADI Standard: High-frequency monitoring
+  scrape_timeout: 10s
+  evaluation_interval: 15s # How often to evaluate Alert Rules
   external_labels:
     cluster: 'padi-nairobi-01'
-    node: 'nairobi-01'
     environment: 'production'
-    bureau: 'padi-sovereign-bureau'
+    timezone: 'Africa/Nairobi'
+    node: 'nairobi-01'
+    owner: 'peculiar-librarian'
 
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets: ['alertmanager:9093']
-      timeout: 10s
-      api_version: v2
-
+# 🏛️ Sovereign Alert Rules (Consolidated v3.0)
 rule_files:
-  - '/etc/prometheus/rules/padi-alerts.yml'
+  - '/etc/prometheus/alerts/alert-rules.yml'
 
 scrape_configs:
-  # --- INTERNAL MONITORING ---
+  # =====================================================
+  # MONITORING STACK SELF-OBSERVATION
+  # =====================================================
   - job_name: 'prometheus'
     static_configs:
-      - targets: ['localhost:9090']
-        labels: { service: 'monitoring', role: 'metrics_collector' }
+      - targets: ['prometheus:9090'] # Using DNS name for container consistency
+    metrics_path: '/metrics'
 
   - job_name: 'alertmanager'
     static_configs:
       - targets: ['alertmanager:9093']
-        labels: { service: 'monitoring', role: 'alert_routing' }
+    metrics_path: '/metrics'
 
   - job_name: 'grafana'
     static_configs:
       - targets: ['grafana:3000']
-        labels: { service: 'monitoring', role: 'visualization' }
-
-  # --- PADI EXECUTION LAYER ---
-  - job_name: 'padi-executor'
     metrics_path: '/metrics'
+
+  # =====================================================
+  # PADI EXECUTOR (The Sovereign Brain)
+  # Acts as the bridge for Alchemy RPC Metrics
+  # =====================================================
+  - job_name: 'executor'
     static_configs:
       - targets: ['executor:8080']
-        labels: { service: 'executor', role: 'transaction_executor' }
+        labels:
+          instance: 'executor:8080'
+          service: 'executor'
+          category: 'node'
+          alchemy_enabled: 'true'
+          rpc_provider: 'alchemy'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
 
-  # --- BLOCKCHAIN INFRASTRUCTURE (Local Node) ---
-  - job_name: 'geth'
-    metrics_path: '/debug/metrics/prometheus'
-    scrape_timeout: 10s
+  # =====================================================
+  # ALCHEMY RPC METRIC EXPORTER (NEW)
+  # Monitors Alchemy endpoint health, latency, and response rates
+  # =====================================================
+  - job_name: 'alchemy_rpc'
     static_configs:
-      - targets: ['10.10.0.20:6060']
-        labels: 
-          service: 'geth'
+      - targets: ['executor:8080']
+        labels:
+          instance: 'alchemy-bridge:8080'
+          service: 'alchemy'
+          category: 'rpc'
           blockchain: 'ethereum'
           network: 'mainnet'
-          role: 'full_node'
+          provider: 'alchemy'
+          alchemy_app: 'peculiars-first-app'
+    metrics_path: '/metrics/alchemy'
+    scrape_interval: 15s
+    scrape_timeout: 10s
 
-  # --- HOST & CONTAINER HEALTH ---
+  # =====================================================
+  # BLOCKCHAIN INFRASTRUCTURE (Geth/RPC)
+  # =====================================================
+  - job_name: 'geth'
+    static_configs:
+      - targets: ['geth:6060']
+        labels:
+          instance: '10.10.0.20:6060' # Matches Alert Rule expressions
+          blockchain: 'ethereum'
+          provider: 'alchemy-bridge'
+    metrics_path: '/debug/metrics/prometheus'
+    scrape_interval: 15s
+
+  # =====================================================
+  # BARE METAL & CONTAINER OBSERVABILITY
+  # =====================================================
   - job_name: 'node_exporter'
     static_configs:
       - targets: ['10.10.0.20:9100']
-        labels: { service: 'node_exporter', role: 'host_metrics' }
+        labels:
+          instance: '10.10.0.20:9100'
+          service: 'node_exporter'
+          category: 'host'
 
   - job_name: 'cadvisor'
     static_configs:
       - targets: ['cadvisor:8080']
-      # Labels are typically auto-generated by cadvisor per container
+    metrics_path: '/metrics'
+    scrape_timeout: 10s
 
-  # --- EXTERNAL HEARTBEAT ---
-  - job_name: 'healthchecks_heartbeat'
-    metrics_path: '/ping'
-    scheme: 'https'
-    static_configs:
-      - targets: ['hc-ping.com']
-        labels: { service: 'monitoring', category: 'heartbeat' }
-    honor_labels: true
+# =====================================================
+# ALERTING PIPELINE
+# =====================================================
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+          labels:
+            cluster: 'padi-nairobi-01'
+
+# =====================================================
+# STORAGE GOVERNANCE
+# =====================================================
+storage:
+  tsdb:
+    path: '/prometheus'
+    retention.time: '15d' # Synced with PADI data lifecycle policy
