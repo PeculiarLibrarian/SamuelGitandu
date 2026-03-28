@@ -1,5 +1,5 @@
 # =====================================================
-# Prometheus Configuration — PADI Nairobi-01 PROD v3.0
+# Prometheus Configuration — PADI Nairobi-01 PROD v3.0-FINAL
 # =====================================================
 #
 # Sovereign Perfection — Production Observatory v3.0
@@ -10,9 +10,10 @@
 #   ✅ Storage Sync: Aligned TSDB retention with Docker Compose flags.
 #   ✅ Label Precision: Fixed job name mapping for Alert Rules compatibility.
 #   ✅ Alchemy Readiness: Configured Executor to act as the RPC bridge.
-#   ✅ Alchemy Integration: Added RPC metric exporter for endpoint monitoring.
+#   ✅ Storage Governance: Added retention size limit (20GB)
+#   ✅ Remote Write: Enabled for future federated monitoring
 #
-# Version: 3.0-PROD (Alchemy Integration)
+# Version: 3.0-FINAL-PROD
 # Node: Nairobi-01
 # Environment: Production
 # File: monitoring/prometheus/prometheus.yml
@@ -39,17 +40,29 @@ scrape_configs:
   # =====================================================
   - job_name: 'prometheus'
     static_configs:
-      - targets: ['prometheus:9090'] # Using DNS name for container consistency
+      - targets: ['prometheus:9090']
+        labels:
+          instance: 'prometheus:9090'
+          service: 'prometheus'
+          category: 'monitoring'
     metrics_path: '/metrics'
 
   - job_name: 'alertmanager'
     static_configs:
       - targets: ['alertmanager:9093']
+        labels:
+          instance: 'alertmanager:9093'
+          service: 'alertmanager'
+          category: 'monitoring'
     metrics_path: '/metrics'
 
   - job_name: 'grafana'
     static_configs:
       - targets: ['grafana:3000']
+        labels:
+          instance: 'grafana:3000'
+          service: 'grafana'
+          category: 'monitoring'
     metrics_path: '/metrics'
 
   # =====================================================
@@ -69,7 +82,7 @@ scrape_configs:
     scrape_interval: 15s
 
   # =====================================================
-  # ALCHEMY RPC METRIC EXPORTER (NEW)
+  # ALCHEMY RPC METRIC EXPORTER
   # Monitors Alchemy endpoint health, latency, and response rates
   # =====================================================
   - job_name: 'alchemy_rpc'
@@ -94,7 +107,7 @@ scrape_configs:
     static_configs:
       - targets: ['geth:6060']
         labels:
-          instance: '10.10.0.20:6060' # Matches Alert Rule expressions
+          instance: '10.10.0.20:6060'
           blockchain: 'ethereum'
           provider: 'alchemy-bridge'
     metrics_path: '/debug/metrics/prometheus'
@@ -114,6 +127,10 @@ scrape_configs:
   - job_name: 'cadvisor'
     static_configs:
       - targets: ['cadvisor:8080']
+        labels:
+          instance: 'cadvisor:8080'
+          service: 'cadvisor'
+          category: 'container'
     metrics_path: '/metrics'
     scrape_timeout: 10s
 
@@ -133,4 +150,5 @@ alerting:
 storage:
   tsdb:
     path: '/prometheus'
-    retention.time: '15d' # Synced with PADI data lifecycle policy
+    retention.time: '15d'
+    retention.size: '20GB'
