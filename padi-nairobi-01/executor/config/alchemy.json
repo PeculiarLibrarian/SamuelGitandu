@@ -1,0 +1,16 @@
+{
+  "alchemy": {
+    "enabled": true,
+    "endpoint": "https://eth-mainnet.g.alchemy.com/v2/PaFeaQHOIM70xNZgHYqdU",
+    "network": "mainnet",
+    "chain_id": 1,
+    "app_name": "peculiars-first-app",
+    "rpc_timeout": 30000,
+    "retry_attempts": 3,
+    "retry_delay": 1000,
+    "health_check_interval": 30000,
+    "metrics_enabled": true,
+    "metrics_port": 8080,
+    "metrics_path": "/metrics/alchemy"
+  }
+}
