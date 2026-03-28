@@ -1,0 +1,106 @@
+# =====================================================
+# Prometheus Alert Rules — PADI Nairobi-01 Alchemy v3.0
+# =====================================================
+#
+# Sovereign Perfection — Production Observatory v3.0
+# Nairobi Node-01 — PADI Sovereign Bureau
+#
+# ALCHEMY-SPECIFIC ALERTS:
+#   ✅ AlchemyRPCEndpointDown — Alchemy RPC endpoint unresponsive
+#   ✅ AlchemyRPCLatencyHigh — RPC request latency above threshold
+#   ✅ AlchemyRequestFailureRate — Alchemy API error rate monitoring
+#
+# Version: 3.0-PROD (Alchemy Integration)
+# Node: Nairobi-01
+# Environment: Production
+# File: monitoring/prometheus/alerts/alert-rules-alchemy.yml
+# =====================================================
+
+groups:
+  - name: padi_alchemy_integration
+    interval: 15s
+    rules:
+      - alert: AlchemyRPCEndpointDown
+        expr: 'padi_alchemy_rpc_up{node="nairobi-01", app="peculiars-first-app"} == 0'
+        for: 2m
+        labels:
+          severity: 'critical'
+          service: 'alchemy'
+          category: 'rpc'
+          env: 'production'
+          node: 'nairobi-01'
+          alert_routing: 'critical-alerts'
+          blockchain: 'ethereum'
+          network: 'mainnet'
+          provider: 'alchemy'
+          alchemy_app: 'peculiars-first-app'
+          padi_directive: 'operational_continuity'
+        annotations:
+          summary: 'CRITICAL — Alchemy RPC Endpoint Unresponsive'
+          description: 'Alchemy RPC endpoint at {{ $labels.alchemy_endpoint }} is not responding'
+          impact: 'CRITICAL — External blockchain RPC unavailable; transactions cannot be submitted'
+          action: 'IMMEDIATE: Verify Alchemy endpoint and API key status'
+          remediation: |
+            1. Check Alchemy app dashboard: https://dashboard.alchemy.com/apps
+            2. Verify API key is valid: curl -X POST https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY -H "Content-Type:application/json" --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+            3. Check executor logs: docker logs executor --tail 100
+            4. Restart executor if bridge is stalled: docker restart executor
+            5. Escalate to Alchemy support if endpoint remains down > 5 minutes
+          runbook: 'https://docs.padi-nairobi-01.com/runbooks/critical/alchemy-rpc-endpoint-down'
+          nairobi_time: 'EAT: {{ with $externalLabels }}{{ .timezone }}{{ end }}'
+
+      - alert: AlchemyRPCLatencyHigh
+        expr: 'padi_alchemy_rpc_latency_seconds{node="nairobi-01", app="peculiars-first-app"} > 5'
+        for: 5m
+        labels:
+          severity: 'warning'
+          service: 'alchemy'
+          category: 'rpc'
+          env: 'production'
+          node: 'nairobi-01'
+          alert_routing: 'executor-alerts'
+          blockchain: 'ethereum'
+          network: 'mainnet'
+          provider: 'alchemy'
+          alchemy_app: 'peculiars-first-app'
+        annotations:
+          summary: 'Alchemy RPC Latency Exceeded 5 Seconds'
+          description: 'RPC latency: ${{ printf "%.2f" $value }} seconds — performance degraded'
+          impact: 'OPERATIONAL — Slow RPC requests; transaction processing delayed'
+          action: 'Review Alchemy app performance and consider alternative endpoints'
+          remediation: |
+            1. Check Alchemy app performance dashboard: https://dashboard.alchemy.com/apps
+            2. Review network latency to Alchemy endpoints: ping eth-mainnet.g.alchemy.com
+            3. Check executor logs for slow RPC calls: docker logs executor --tail 200
+            4. Consider switching to faster Alchemy endpoint (e.g., ws-mainnet.g.alchemy.com)
+            5. Monitor alert; will auto-resolve when latency drops below 5s
+          runbook: 'https://docs.padi-nairobi-01.com/runbooks/alchemy/rpc-latency-high'
+          nairobi_time: 'EAT: {{ with $externalLabels }}{{ .timezone }}{{ end }}'
+
+      - alert: AlchemyRequestFailureRate
+        expr: '(sum(rate(padi_alchemy_rpc_requests_total{node="nairobi-01", status="error"}[5m])) / sum(rate(padi_alchemy_rpc_requests_total{node="nairobi-01"}[5m]))) > 0.05'
+        for: 5m
+        labels:
+          severity: 'warning'
+          service: 'alchemy'
+          category: 'rpc'
+          env: 'production'
+          node: 'nairobi-01'
+          alert_routing: 'executor-alerts'
+          blockchain: 'ethereum'
+          network: 'mainnet'
+          provider: 'alchemy'
+          alchemy_app: 'peculiars-first-app'
+        annotations:
+          summary: 'Alchemy API Error Rate Above 5%'
+          description: 'Error rate: ${{ printf "%.2f" $value | humanizePercentage }} of total Alchemy requests'
+          impact: 'OPERATIONAL — High error rate indicates API issues or rate limiting'
+          action: 'Review Alchemy app usage and API limits'
+          remediation: |
+            1. Check Alchemy app usage dashboard: https://dashboard.alchemy.com/apps
+            2. Verify API key rate limits; consider upgrading plan if needed
+            3. Review executor logs for error details: docker logs executor --tail 200 | grep "WARN"
+            4. Implement request retry with exponential backoff in executor
+            5. Escalate to Alchemy support if error rate > 10%
+          runbook: 'https://docs.padi-nairobi-01.com/runbooks/alchemy/api-error-rate-high'
+          nairobi_time: 'EAT: {{ with $externalLabels }}{{ .timezone }}{{ end }}'
