@@ -140,11 +140,9 @@ The system is fully reproducible and verifiable.
 
 ### System Access
 
-*   **Protocol Repository (GitHub):** \[Insert Link\]
+*   **Protocol Repository (GitHub):** [PADI Sovereign Bureau](https://github.com/PeculiarLibrarian/padi-sovereign-bureau)
     
-*   **Execution Layer (Render/Zeabur):** \[Insert Link\]
-    
-*   **Visualization Interface (D3 Graph):** \[Insert Link\]
+*   **Visualization Interface (D3 Graph):** [PADI Sovereign Bureau](https://padi-sovereign-bureau.onrender.com/)
     
 
 ## 7\. Conclusion: The Knowledge Operating System
